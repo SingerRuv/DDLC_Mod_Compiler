@@ -1,0 +1,100 @@
+"""Mod discovery and Launcher persistence."""
+import json
+from pathlib import Path
+
+from .mods import _runtime_ok, _version_renpy
+from .platforms import find_launcher
+
+DATA_DIR = Path.home() / ".ddlc_mod_compiler"
+STORE_PATH = DATA_DIR / "launcher.json"
+LAUNCHER_SUFFIXES = (".exe", ".app", ".sh")
+SKIP_DIRS = {".git", "__pycache__", "game", "lib", "renpy", "saves",
+             "cache", "dist", "build", ".venv"}
+
+
+def _logo_for(root):
+    for rel in ("icon.png", "logo.png", "game/icon.png",
+                "game/logo.png", "game/gui/icon.png"):
+        p = root / rel
+        if p.is_file():
+            return str(p)
+    return ""
+
+
+def entry_from_path(path):
+    """Build one Launcher entry for a runnable mod folder, or None."""
+    root = Path(path)
+    if not root.is_dir():
+        return None
+    launcher = find_launcher(root)
+    if launcher is None or launcher.suffix.lower() not in LAUNCHER_SUFFIXES:
+        return None
+    if launcher.suffix.lower() == ".app" and not launcher.is_dir():
+        return None
+    if _runtime_ok(root):
+        kind = "Ren'Py %s" % _version_renpy(root)
+    elif (root / "game" / "scripts.rpa").is_file():
+        kind = "DDLC build"
+    else:
+        kind = "Runnable mod"
+    return {
+        "path": str(root.resolve()),
+        "name": root.name,
+        "launcher": str(launcher.resolve()),
+        "kind": kind,
+        "logo": _logo_for(root),
+    }
+
+
+def scan_mods(root):
+    """Recursively find runnable mods, without entering a detected mod."""
+    root = Path(root)
+    if not root.is_dir():
+        return []
+    found = {}
+
+    def visit(directory):
+        entry = entry_from_path(directory)
+        if entry:
+            found[entry["path"]] = entry
+            return
+        try:
+            children = [p for p in directory.iterdir()
+                        if p.is_dir() and p.name not in SKIP_DIRS]
+        except OSError:
+            return
+        for child in children:
+            visit(child)
+
+    visit(root)
+    return sorted(found.values(), key=lambda e: e["name"].casefold())
+
+
+def load_state():
+    try:
+        data = json.loads(STORE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return "", []
+    root = data.get("root", "")
+    paths = data.get("mods", [])
+    if not isinstance(paths, list):
+        paths = []
+    return root, [str(p) for p in paths]
+
+
+def save_state(root, entries):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data = {
+        "root": str(root) if root else "",
+        "mods": [e["path"] for e in entries],
+    }
+    STORE_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def entries_from_paths(paths):
+    entries = []
+    for path in paths:
+        entry = entry_from_path(path)
+        if entry:
+            entries.append(entry)
+    return entries

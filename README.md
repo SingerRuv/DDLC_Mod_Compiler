@@ -23,6 +23,7 @@ On macOS, the app is unsigned. Open it with right-click > Open.
 
 ## Features
 
+- Launcher tab for runnable mods.
 - Automatic detection of DDLC overlays and prebuilt Ren'Py runtimes.
 - Ren'Py 7 and Ren'Py 8 runtime detection.
 - Optional output ZIP.
@@ -48,7 +49,16 @@ Mod:
 - **Overlay:** `game/scripts.rpa` plus `game/mod_assets.rpa`.
 - **Runtime:** `game/`, `lib/`, `renpy/`, and the mod launcher. It can be a folder or a ZIP.
 
-## Usage
+## Launcher
+
+The **Launcher** tab is shown first. Choose a mods folder and the tool scans it recursively for runnable mods (`.exe`, `.app`, or `.sh`).
+
+- Each mod is shown as a card with its logo, name, runtime/type, **Launch**, and **Open folder**.
+- Mods and the selected folder are saved in `~/.ddlc_mod_compiler/launcher.json`.
+- New builds are added to the Launcher automatically.
+- Logos are loaded from `icon.png`, `logo.png`, `game/icon.png`, or `game/logo.png`; otherwise the DDLC Mod Compiler icon is used.
+
+## Compiler Usage
 
 1. Open the tool:
    - Windows: `DDLCModCompiler/DDLCModCompiler.exe` or `DDLCModCompiler/DDLCModCompiler.bat`.
@@ -114,6 +124,9 @@ DDLC_Mod_Compiler/
     ├── icon.icns
     ├── ddlc_mod_compiler/
     │   ├── app.py
+    │   ├── compiler_tab.py
+    │   ├── launcher_tab.py
+    │   ├── library.py
     │   ├── builder.py
     │   ├── config.py
     │   ├── errors.py
