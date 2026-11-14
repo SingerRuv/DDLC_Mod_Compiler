@@ -1,8 +1,8 @@
-"""DDLC Compiler constants and paths."""
+"""DDLC Mod Compiler constants and paths."""
 from pathlib import Path
 import sys
 
-APP = "DDLC Compiler"
+APP = "DDLC Mod Compiler"
 MAX_ZIP_FILES = 200000
 MAX_ZIP_BYTES = 4 * 1024 * 1024 * 1024
 COPY_CHUNK = 1024 * 1024
@@ -29,5 +29,5 @@ def resource_path(nombre):
     return Path(base) / nombre if base else app_dir() / nombre
 
 
-LOG_PATH = (app_dir() / "DDLCCompiler.log" if sys.platform == "win32"
-            else Path.home() / ".ddlc_compiler" / "DDLCCompiler.log")
+LOG_PATH = (app_dir() / "DDLCModCompiler.log" if sys.platform == "win32"
+            else Path.home() / ".ddlc_mod_compiler" / "DDLCModCompiler.log")

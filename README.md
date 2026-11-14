@@ -1,4 +1,4 @@
-# DDLC Compiler
+# DDLC Mod Compiler
 
 Cross-platform tool for building playable DDLC mods. It supports two mod structures:
 
@@ -11,12 +11,12 @@ The tool does not use the Ren'Py SDK. ZIP creation is optional and stored withou
 
 The latest Windows, Linux, macOS Intel, and macOS Apple Silicon builds are available from GitHub Actions:
 
-https://github.com/SingerRuv/DDLC_Compiler/actions
+https://github.com/SingerRuv/DDLC_Mod_Compiler/actions
 
 The Windows executable is also included at:
 
 ```text
-DDLCCompiler/DDLCCompiler.exe
+DDLCModCompiler/DDLCModCompiler.exe
 ```
 
 On macOS, the app is unsigned. Open it with right-click > Open.
@@ -33,9 +33,9 @@ On macOS, the app is unsigned. Open it with right-click > Open.
 
 ## Requirements
 
-- **Windows:** `DDLCCompiler.exe` does not require Python.
-- **macOS:** `DDLCCompiler.app`; no signing or notarization.
-- **Linux:** the `DDLCCompiler` binary; Tkinter is bundled by PyInstaller.
+- **Windows:** `DDLCModCompiler.exe` does not require Python.
+- **macOS:** `DDLCModCompiler.app`; no signing or notarization.
+- **Linux:** the `DDLCModCompiler` binary; Tkinter is bundled by PyInstaller.
 - **From source:** Python 3 with Tkinter.
 
 DDLC base:
@@ -51,9 +51,9 @@ Mod:
 ## Usage
 
 1. Open the tool:
-   - Windows: `DDLCCompiler/DDLCCompiler.exe` or `DDLCCompiler/DDLCCompiler.bat`.
-   - macOS: `DDLCCompiler.app`.
-   - Linux: `./DDLCCompiler`.
+   - Windows: `DDLCModCompiler/DDLCModCompiler.exe` or `DDLCModCompiler/DDLCModCompiler.bat`.
+   - macOS: `DDLCModCompiler.app`.
+   - Linux: `./DDLCModCompiler`.
 2. Select the DDLC base.
 3. Select the mod folder or ZIP. The tool displays the detected mode:
    - `DDLC overlay`
@@ -102,17 +102,17 @@ Mod:
 ## Repository Layout
 
 ```text
-DDLC_Compiler/
+DDLC_Mod_Compiler/
 ├── README.md
 ├── .github/workflows/build.yml
-└── DDLCCompiler/
-    ├── DDLCCompiler.exe
-    ├── DDLCCompiler.bat
-    ├── DDLCCompiler.py
+└── DDLCModCompiler/
+    ├── DDLCModCompiler.exe
+    ├── DDLCModCompiler.bat
+    ├── DDLCModCompiler.py
     ├── DDLC.ico
     ├── icon.png
     ├── icon.icns
-    ├── ddlc_compiler/
+    ├── ddlc_mod_compiler/
     │   ├── app.py
     │   ├── builder.py
     │   ├── config.py
@@ -134,22 +134,22 @@ DDLC_Compiler/
 Windows:
 
 ```powershell
-.\DDLCCompiler\build\build_windows.ps1
+.\DDLCModCompiler\build\build_windows.ps1
 ```
 
 Linux:
 
 ```sh
-bash DDLCCompiler/build/build_linux.sh
+bash DDLCModCompiler/build/build_linux.sh
 ```
 
 macOS:
 
 ```sh
-bash DDLCCompiler/build/build_macos.sh
+bash DDLCModCompiler/build/build_macos.sh
 ```
 
-Artifacts are written to `DDLCCompiler/dist/`.
+Artifacts are written to `DDLCModCompiler/dist/`.
 
 GitHub Actions builds Windows, Linux, macOS Intel, and macOS Apple Silicon automatically and publishes the artifacts.
 
@@ -161,7 +161,7 @@ Native binaries must be built on their target operating system. Windows cannot c
 - Build MySilverLining with `DDLC-1.1.1-pc` as the base and `MySilverLining-0.6d-Renpy7Mod` as the mod.
 - MySilverLining's README mentions `python_packages`; the standard `python-packages` folder is used because that is what Ren'Py 7 loads.
 - The optional ZIP is stored without compression, which is much faster for large builds.
-- The log is written next to the executable on Windows and to `~/.ddlc_compiler/DDLCCompiler.log` on macOS/Linux.
+- The log is written next to the executable on Windows and to `~/.ddlc_mod_compiler/DDLCModCompiler.log` on macOS/Linux.
 - If the output folder exists and is not empty, the tool stops instead of overwriting files.
 - macOS builds are unsigned and not notarized.
 - Linux builds target Ubuntu 22.04; compatibility depends on the destination glibc version.

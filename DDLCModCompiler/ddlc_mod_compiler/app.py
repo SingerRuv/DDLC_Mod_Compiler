@@ -1,4 +1,4 @@
-"""DDLC Compiler GUI."""
+"""DDLC Mod Compiler GUI."""
 import queue
 import sys
 import threading

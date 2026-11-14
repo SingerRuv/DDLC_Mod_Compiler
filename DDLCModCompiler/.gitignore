@@ -1,4 +1,4 @@
 __pycache__/
 *.pyc
 dist/
-DDLCCompiler.log
+DDLCModCompiler.log
