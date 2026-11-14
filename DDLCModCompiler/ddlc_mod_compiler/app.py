@@ -42,8 +42,8 @@ class App(tk.Tk):
         except Exception:
             pass
         self.title(APP)
-        self.geometry("900x680")
-        self.minsize(760, 560)
+        self.geometry("900x460")
+        self.minsize(760, 440)
         self.base = tk.StringVar()
         self.overlay = tk.StringVar()
         self.output = tk.StringVar()
@@ -84,7 +84,7 @@ class App(tk.Tk):
         overlay_btns.grid(row=3, column=3, padx=(8, 0))
         ttk.Button(overlay_btns, text="Folder...",
                    command=self._elegir_overlay_dir).pack(side="left")
-        ttk.Button(overlay_btns, text="ZIP…",
+        ttk.Button(overlay_btns, text="ZIPâ€¦",
                    command=self._elegir_overlay_zip).pack(side="left", padx=(4, 0))
 
         ttk.Label(frm, text="3. Output folder").grid(row=4, column=0, sticky="w")
@@ -121,7 +121,7 @@ class App(tk.Tk):
         ttk.Label(statusbar, textvariable=self.estado, anchor="w").pack(
             side="left", fill="x", expand=True, padx=(4, 0))
 
-        self.log = ScrolledText(frm, height=18, wrap="word")
+        self.log = ScrolledText(frm, height=8, wrap="word")
         self.log.grid(row=9, column=0, columnspan=4, sticky="nsew")
         frm.columnconfigure(0, weight=1)
         frm.columnconfigure(1, weight=1)
@@ -217,7 +217,7 @@ class App(tk.Tk):
                     else:
                         valor = pct
                     self.progress.configure(value=max(0, min(100, valor)))
-                    self.estado.set("%s… %d%%" % (etiqueta, pct))
+                    self.estado.set("%sâ€¦ %d%%" % (etiqueta, pct))
                 elif tipo == "done":
                     self._terminar(*msg)
         except queue.Empty:
@@ -307,7 +307,7 @@ class App(tk.Tk):
             self.spinner_var.set("")
             self._spin_job = None
             return
-        frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        frames = "â ‹â ™â ¹â ¸â ¼â ´â ¦â §â ‡â "
         self.spinner_var.set(frames[self._spin_idx % len(frames)])
         self._spin_idx += 1
         self._spin_job = self.after(100, self._spin_tick)
@@ -348,3 +348,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
