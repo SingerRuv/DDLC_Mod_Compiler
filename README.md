@@ -1,23 +1,47 @@
 # DDLC Compiler
 
-Cross-platform tool for building playable DDLC mods. It supports two structures:
+Cross-platform tool for building playable DDLC mods. It supports two mod structures:
 
 - **Overlay:** a clean DDLC base plus `game/scripts.rpa` and `game/mod_assets.rpa`.
 - **Prebuilt runtime:** a mod that already includes its own Ren'Py 7/8 runtime (`.exe`, `.app`, `lib/`, `renpy/`) and only needs the DDLC base assets.
 
-It does not use the Ren'Py SDK. ZIP creation is optional and stored without compression.
+The tool does not use the Ren'Py SDK. ZIP creation is optional and stored without compression.
+
+## Download
+
+The latest Windows, Linux, macOS Intel, and macOS Apple Silicon builds are available from GitHub Actions:
+
+https://github.com/SingerRuv/DDLC_Compiler/actions
+
+The Windows executable is also included at:
+
+```text
+DDLCCompiler/DDLCCompiler.exe
+```
+
+On macOS, the app is unsigned. Open it with right-click > Open.
+
+## Features
+
+- Automatic detection of DDLC overlays and prebuilt Ren'Py runtimes.
+- Ren'Py 7 and Ren'Py 8 runtime detection.
+- Optional output ZIP.
+- Progress bar, status messages, spinner, cancellation, and logging.
+- Safe ZIP extraction and free-space checks.
+- No modification of the original base or mod.
+- English interface and documentation.
 
 ## Requirements
 
 - **Windows:** `DDLCCompiler.exe` does not require Python.
-- **macOS:** `DDLCCompiler.app`; it is unsigned, so open it with right-click > Open.
-- **Linux:** the `DDLCCompiler` binary; PyInstaller bundles Tkinter.
-- To run from source: Python 3 with Tkinter.
+- **macOS:** `DDLCCompiler.app`; no signing or notarization.
+- **Linux:** the `DDLCCompiler` binary; Tkinter is bundled by PyInstaller.
+- **From source:** Python 3 with Tkinter.
 
 DDLC base:
 
 - **Overlay mode:** launcher (`DDLC.exe`, `DDLC.sh`, or `DDLC.app`), `game/scripts.rpa`, `images.rpa`, `audio.rpa`, `fonts.rpa`, `lib/`, and `renpy/`.
-- **Runtime mode:** the base assets `game/images.rpa`, `game/audio.rpa`, `game/fonts.rpa`, and `game/python-packages/`. The base runtime is not copied.
+- **Runtime mode:** `game/images.rpa`, `game/audio.rpa`, `game/fonts.rpa`, and `game/python-packages/`. The base runtime is not copied.
 
 Mod:
 
@@ -27,16 +51,16 @@ Mod:
 ## Usage
 
 1. Open the tool:
-   - Windows: `DDLCCompiler.exe` or `DDLCCompiler.bat`.
+   - Windows: `DDLCCompiler/DDLCCompiler.exe` or `DDLCCompiler/DDLCCompiler.bat`.
    - macOS: `DDLCCompiler.app`.
    - Linux: `./DDLCCompiler`.
 2. Select the DDLC base.
-3. Select the mod folder or ZIP. The tool detects and displays the mode:
+3. Select the mod folder or ZIP. The tool displays the detected mode:
    - `DDLC overlay`
    - `Runtime Ren'Py 7` / `Runtime Ren'Py 8`
    - `Source project (unsupported)`
 4. Select the output folder. The default is `<mod> (Compiled)`.
-5. Options:
+5. Choose the options:
    - include `Credits.txt`, `ThankYou.txt`, and `README.html` (overlay only);
    - create an uncompressed ZIP;
    - open the game when finished.
@@ -75,33 +99,34 @@ Mod:
 - Does not modify the original base or mod.
 - If closed during a build, asks for confirmation and cleans the staging folder.
 
-## Structure
+## Repository Layout
 
 ```text
-DDLCCompiler/
-├── DDLCCompiler.exe
-├── DDLCCompiler.bat
-├── DDLCCompiler.py          # source launcher
-├── DDLC.ico
-├── icon.png                 # Linux/macOS
-├── icon.icns                # macOS
+DDLC_Compiler/
 ├── README.md
-├── ddlc_compiler/
-│   ├── app.py               # GUI
-│   ├── builder.py           # overlay/runtime builds
-│   ├── config.py            # constants and paths
-│   ├── errors.py
-│   ├── files.py             # copy, hashes, and ZIP
-│   ├── mods.py              # detection and validation
-│   ├── platforms.py         # platform launchers
-│   ├── __init__.py
-│   └── __main__.py
-├── build/
-│   ├── build_windows.ps1
-│   ├── build_linux.sh
-│   ├── build_macos.sh
-│   └── requirements-build.txt
-└── .github/workflows/build.yml
+├── .github/workflows/build.yml
+└── DDLCCompiler/
+    ├── DDLCCompiler.exe
+    ├── DDLCCompiler.bat
+    ├── DDLCCompiler.py
+    ├── DDLC.ico
+    ├── icon.png
+    ├── icon.icns
+    ├── ddlc_compiler/
+    │   ├── app.py
+    │   ├── builder.py
+    │   ├── config.py
+    │   ├── errors.py
+    │   ├── files.py
+    │   ├── mods.py
+    │   ├── platforms.py
+    │   ├── __init__.py
+    │   └── __main__.py
+    └── build/
+        ├── build_windows.ps1
+        ├── build_linux.sh
+        ├── build_macos.sh
+        └── requirements-build.txt
 ```
 
 ## Build
@@ -109,22 +134,22 @@ DDLCCompiler/
 Windows:
 
 ```powershell
-.\build\build_windows.ps1
+.\DDLCCompiler\build\build_windows.ps1
 ```
 
 Linux:
 
 ```sh
-bash build/build_linux.sh
+bash DDLCCompiler/build/build_linux.sh
 ```
 
 macOS:
 
 ```sh
-bash build/build_macos.sh
+bash DDLCCompiler/build/build_macos.sh
 ```
 
-Artifacts are written to `dist/`.
+Artifacts are written to `DDLCCompiler/dist/`.
 
 GitHub Actions builds Windows, Linux, macOS Intel, and macOS Apple Silicon automatically and publishes the artifacts.
 
