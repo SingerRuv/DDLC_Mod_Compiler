@@ -1,4 +1,4 @@
-name: Build CompilarDDLC
+name: Build DDLCCompiler
 
 on:
   workflow_dispatch:
@@ -17,12 +17,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -r CompilarDDLC/build/requirements-build.txt
-      - run: pwsh -File CompilarDDLC/build/build_windows.ps1
+      - run: python -m pip install -r DDLCCompiler/build/requirements-build.txt
+      - run: pwsh -File DDLCCompiler/build/build_windows.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: CompilarDDLC-windows-x64
-          path: CompilarDDLC/dist/windows/CompilarDDLC.exe
+          name: DDLCCompiler-windows-x64
+          path: DDLCCompiler/dist/windows/DDLCCompiler.exe
           if-no-files-found: error
 
   linux:
@@ -32,13 +32,13 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y python3 python3-venv python3-tk
       - run: |
           python3 -m venv .venv
-          .venv/bin/python -m pip install -r CompilarDDLC/build/requirements-build.txt
+          .venv/bin/python -m pip install -r DDLCCompiler/build/requirements-build.txt
           . .venv/bin/activate
-          bash CompilarDDLC/build/build_linux.sh
+          bash DDLCCompiler/build/build_linux.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: CompilarDDLC-linux-x86_64
-          path: CompilarDDLC/dist/CompilarDDLC-linux-*.tar.gz
+          name: DDLCCompiler-linux-x86_64
+          path: DDLCCompiler/dist/DDLCCompiler-linux-*.tar.gz
           if-no-files-found: error
 
   macos-intel:
@@ -48,12 +48,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -r CompilarDDLC/build/requirements-build.txt
-      - run: bash CompilarDDLC/build/build_macos.sh x86_64
+      - run: python -m pip install -r DDLCCompiler/build/requirements-build.txt
+      - run: bash DDLCCompiler/build/build_macos.sh x86_64
       - uses: actions/upload-artifact@v4
         with:
-          name: CompilarDDLC-macos-x86_64
-          path: CompilarDDLC/dist/CompilarDDLC-macos-x86_64.zip
+          name: DDLCCompiler-macos-x86_64
+          path: DDLCCompiler/dist/DDLCCompiler-macos-x86_64.zip
           if-no-files-found: error
 
   macos-apple-silicon:
@@ -63,10 +63,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -r CompilarDDLC/build/requirements-build.txt
-      - run: bash CompilarDDLC/build/build_macos.sh arm64
+      - run: python -m pip install -r DDLCCompiler/build/requirements-build.txt
+      - run: bash DDLCCompiler/build/build_macos.sh arm64
       - uses: actions/upload-artifact@v4
         with:
-          name: CompilarDDLC-macos-arm64
-          path: CompilarDDLC/dist/CompilarDDLC-macos-arm64.zip
+          name: DDLCCompiler-macos-arm64
+          path: DDLCCompiler/dist/DDLCCompiler-macos-arm64.zip
           if-no-files-found: error

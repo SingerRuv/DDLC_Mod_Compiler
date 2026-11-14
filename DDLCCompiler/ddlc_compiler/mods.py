@@ -1,4 +1,4 @@
-"""Detección y validación de mods DDLC."""
+"""DDLC mod detection and validation."""
 import os
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -51,7 +51,7 @@ def _tipo_mod(root):
 
 
 def _buscar_raiz_mod(path):
-    """Devuelve (raíz, tipo) para una carpeta o un ZIP ya extraído."""
+    """Return (root, type) for a folder or an extracted ZIP."""
     p = Path(path)
     candidatos = [p]
     try:
@@ -72,7 +72,7 @@ def _buscar_raiz_mod(path):
 
 
 def _tipo_zip(path):
-    """Detecta el tipo mirando los nombres del ZIP, sin extraerlo."""
+    """Detect the type from ZIP entry names without extracting."""
     with zipfile.ZipFile(path, "r") as z:
         partes = [PurePosixPath(i.filename.replace("\\", "/")).parts
                   for i in z.infolist()]
@@ -88,47 +88,47 @@ def _tipo_zip(path):
         return "overlay", ""
     if any(p and p[-1].endswith(".rpy") for p in partes):
         return "fuente", ""
-    raise BuildError("No reconozco el mod: no es overlay ni runtime Ren'Py.")
+    raise BuildError("Unrecognized mod: not an overlay or Ren'Py runtime.")
 
 
 def detectar_mod(path):
-    """Devuelve (tipo, versión) para mostrar el modo en la GUI."""
+    """Return (type, version) for the GUI mode indicator."""
     p = Path(path)
     if p.is_file():
         if p.suffix.lower() != ".zip":
-            raise BuildError("El mod debe ser una carpeta o un .zip.")
+            raise BuildError("The mod must be a folder or .zip.")
         return _tipo_zip(p)
     if not p.is_dir():
-        raise BuildError("La carpeta del mod no existe.")
+        raise BuildError("Mod folder does not exist.")
     root, tipo = _buscar_raiz_mod(p)
     if not tipo:
-        raise BuildError("No reconozco el mod: no es overlay ni runtime Ren'Py.")
+        raise BuildError("Unrecognized mod: not an overlay or Ren'Py runtime.")
     return tipo, (_version_renpy(root) if tipo == "runtime" else "")
 
 
 def validar_base(base, solo_assets=False):
     b = Path(base)
     if not b.is_dir():
-        raise BuildError("La carpeta base DDLC no existe.")
+        raise BuildError("DDLC base folder does not exist.")
     if solo_assets:
         for rel in BASE_ASSETS:
             p = b / rel
             if not p.is_file() or not _rpa_ok(p):
-                raise BuildError("La base no tiene un %s válido." % rel)
+                raise BuildError("The base is missing a valid %s." % rel)
         if not (b / BASE_PY).is_dir():
-            raise BuildError("La base no tiene game/python-packages/.")
+            raise BuildError("The base is missing game/python-packages/.")
         return b
     if not any((b / n).is_file() or
                (n == "DDLC.app" and (b / n).is_dir())
                for n in ("DDLC.exe", "DDLC.sh", "DDLC.py", "DDLC.app")):
-        raise BuildError("La base no parece DDLC: falta DDLC.exe/DDLC.sh/DDLC.py/DDLC.app.")
+        raise BuildError("The base does not look like DDLC: missing DDLC.exe/DDLC.sh/DDLC.py/DDLC.app.")
     for rel in ("lib", "renpy"):
         if not (b / rel).is_dir():
-            raise BuildError("La base no parece DDLC: falta %s/." % rel)
+            raise BuildError("The base does not look like DDLC: missing %s/." % rel)
     for rel in BASE_RPAS:
         p = b / rel
         if not p.is_file() or not _rpa_ok(p):
-            raise BuildError("La base no tiene un %s válido." % rel)
+            raise BuildError("The base is missing a valid %s." % rel)
     return b
 
 
@@ -137,13 +137,13 @@ def validar_overlay(root):
     for rel in OVERLAY_RPAS:
         p = r / rel
         if not p.is_file() or not _rpa_ok(p):
-            raise BuildError("El overlay no tiene un %s válido." % rel)
+            raise BuildError("The overlay is missing a valid %s." % rel)
     return r
 
 
 def validar_runtime(root):
     r = Path(root)
     if not _runtime_ok(r):
-        raise BuildError("El mod no parece un runtime Ren'Py completo "
-                         "(faltan game/, lib/, renpy/ o el ejecutable).")
+        raise BuildError("The mod does not look like a complete Ren'Py runtime "
+                         "(missing game/, lib/, renpy/, or a launcher).")
     return r

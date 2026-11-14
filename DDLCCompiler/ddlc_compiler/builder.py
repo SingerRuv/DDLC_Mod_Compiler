@@ -1,4 +1,4 @@
-"""Build overlay y runtime de Compilar DDLC."""
+"""DDLC Compiler build pipeline."""
 import shutil
 import tempfile
 import zipfile
@@ -22,7 +22,7 @@ def _agregar_assets(base, staging, log, cancelar, progress):
     for rel in BASE_ASSETS:
         src, dst = base / rel, staging / rel
         if dst.exists():
-            log("Conservado %s del mod." % rel)
+            log("Kept %s from the mod." % rel)
         else:
             items.append((src, dst, rel))
     py_src, py_dst = base / BASE_PY, staging / BASE_PY
@@ -36,10 +36,10 @@ def _agregar_assets(base, staging, log, cancelar, progress):
             raise BuildCancelada()
         dst.parent.mkdir(parents=True, exist_ok=True)
         hechos += _copiar_archivo(src, dst, cancelar, progress,
-                                  "Copiando assets", max(total, 1), hechos)
-        log("Copiado %s." % rel)
+                                  "Copying assets", max(total, 1), hechos)
+        log("Copied %s." % rel)
     if not items:
-        log("El mod ya tiene todos los assets base.")
+        log("The mod already has all base assets.")
 
 
 def _validar_salida(base, mod, output, needed):
@@ -48,20 +48,20 @@ def _validar_salida(base, mod, output, needed):
     for origen in (base, mod):
         origen_abs = Path(_norm(origen))
         if out_abs == origen_abs or origen_abs in out_abs.parents:
-            raise BuildError("La salida no puede ser la base, el mod ni "
-                             "una carpeta dentro de ellos.")
+            raise BuildError("Output cannot be the base, the mod, or "
+                             "a folder inside them.")
     if output.exists() and not output.is_dir():
-        raise BuildError("La salida existe y no es una carpeta.")
+        raise BuildError("Output exists and is not a folder.")
     if _no_vacio(output):
-        raise BuildError("La carpeta de salida ya existe y no está vacía.")
+        raise BuildError("Output folder already exists and is not empty.")
     if output.parent == output:
-        raise BuildError("Elegí una carpeta de salida válida.")
+        raise BuildError("Choose a valid output folder.")
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists() and not any(output.iterdir()):
         output.rmdir()
     libre = shutil.disk_usage(str(output.parent)).free
     if libre < needed:
-        raise BuildError("No hay espacio suficiente: faltan %.1f MB."
+        raise BuildError("Not enough free space: %.1f MB missing."
                          % ((needed - libre) / (1024 * 1024)))
     return output
 
@@ -69,9 +69,9 @@ def _validar_salida(base, mod, output, needed):
 def _crear_zip(output, log, status, progress, cancelar):
     zip_final = output.with_name(output.name + ".zip")
     if zip_final.exists():
-        raise BuildError("Ya existe el ZIP: %s" % zip_final)
-    log("Creando ZIP sin compresión...")
-    status("Creando ZIP...")
+        raise BuildError("ZIP already exists: %s" % zip_final)
+    log("Creating uncompressed ZIP...")
+    status("Creating ZIP...")
     archivos_zip = sorted(p for p in output.rglob("*") if p.is_file())
     total_zip = len(archivos_zip)
     try:
@@ -83,8 +83,8 @@ def _crear_zip(output, log, status, progress, cancelar):
                 arc = output.name + "/" + \
                     str(p.relative_to(output)).replace("\\", "/")
                 z.write(p, arc)
-                progress("Creando ZIP", i, max(total_zip, 1))
-        log("ZIP creado: %s" % zip_final)
+                progress("Creating ZIP", i, max(total_zip, 1))
+        log("ZIP created: %s" % zip_final)
     except Exception:
         if zip_final.exists():
             zip_final.unlink()
@@ -105,59 +105,59 @@ def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
     if crear_zip:
         needed *= 2
     output = _validar_salida(base, mod, output, needed)
-    log("Validación correcta: runtime Ren'Py %s." % _version_renpy(mod))
+    log("Validation OK: Ren'Py %s runtime." % _version_renpy(mod))
 
     staging = Path(tempfile.mkdtemp(prefix=output.name + "-build-",
                                     dir=str(output.parent)))
     try:
-        status("Copiando mod...")
-        log("Copiando mod...")
+        status("Copying mod...")
+        log("Copying mod...")
         _copiar_arbol(mod, staging, log, cancelar, progress,
-                      filtro=_ignorar_runtime, etiqueta="Copiando mod",
-                      resumen="Mod copiado")
+                      filtro=_ignorar_runtime, etiqueta="Copying mod",
+                      resumen="Mod copied")
         if cancelar and cancelar.is_set():
             raise BuildCancelada()
 
-        status("Copiando assets base...")
-        log("Agregando assets base...")
+        status("Copying base assets...")
+        log("Adding base assets...")
         _agregar_assets(base, staging, log, cancelar, progress)
 
-        status("Verificando build...")
-        progress("Verificando build", 1, 1)
+        status("Verifying build...")
+        progress("Verifying build", 1, 1)
         for rel in BASE_ASSETS:
             p = staging / rel
             if not p.is_file() or not _rpa_ok(p):
-                raise BuildError("Build incompleto: %s." % rel)
+                raise BuildError("Incomplete build: %s." % rel)
         if not (staging / BASE_PY).is_dir():
-            raise BuildError("Build incompleto: falta game/python-packages/.")
+            raise BuildError("Incomplete build: missing game/python-packages/.")
         exe = find_launcher(staging)
         if exe is None:
-            raise BuildError("Build incompleto: no encontré el lanzador del mod.")
-        log("Lanzador del mod: %s" % exe.name)
+            raise BuildError("Incomplete build: mod launcher not found.")
+        log("Mod launcher: %s" % exe.name)
 
         if output.exists():
-            raise BuildError("La salida apareció mientras se compilaba.")
+            raise BuildError("Output appeared while building.")
         staging.replace(output)
-        log("Carpeta jugable creada: %s" % output)
+        log("Playable folder created: %s" % output)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
         raise
 
     zip_final = _crear_zip(output, log, status, progress, cancelar) \
         if crear_zip else None
-    status("Listo")
-    progress("Listo", 1, 1)
+    status("Ready")
+    progress("Ready", 1, 1)
 
     if abrir_juego:
         exe = find_launcher(output)
         if exe:
-            log("Abriendo %s..." % exe.name)
+            log("Opening %s..." % exe.name)
             try:
                 open_launcher(exe, cwd=output)
             except Exception as e:
-                log("No se pudo abrir el juego: %s" % e)
+                log("Could not open the game: %s" % e)
         else:
-            log("No encontré un lanzador para abrir.")
+            log("No launcher found to open.")
 
     return output, zip_final
 
@@ -165,15 +165,15 @@ def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
 def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
              abrir_juego=False, log=print, status=lambda _s: None,
              progress=lambda *a: None, cancelar=None):
-    """Devuelve la carpeta final y, si se pidió, el ZIP."""
-    status("Validando...")
+    """Return the final folder and, if requested, the ZIP."""
+    status("Validating...")
     mod_original = Path(overlay)
     tmp_zip = None
     if mod_original.is_file():
         if mod_original.suffix.lower() != ".zip":
-            raise BuildError("El mod debe ser una carpeta o un .zip.")
+            raise BuildError("The mod must be a folder or .zip.")
         tmp_zip = Path(tempfile.mkdtemp(prefix="ddlc-mod-"))
-        log("Extrayendo mod ZIP...")
+        log("Extracting mod ZIP...")
         try:
             from .files import _extraer_zip
             _extraer_zip(mod_original, tmp_zip, cancelar)
@@ -186,13 +186,13 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
     if tipo is None:
         if tmp_zip:
             shutil.rmtree(tmp_zip, ignore_errors=True)
-        raise BuildError("No reconozco el mod: no es overlay ni runtime Ren'Py.")
+        raise BuildError("Unrecognized mod: not an overlay or Ren'Py runtime.")
     try:
         if tipo == "fuente":
-            raise BuildError("Es un proyecto fuente Ren'Py. Este modo no usa "
-                             "el SDK; seleccioná una distribución ya armada.")
+            raise BuildError("This is a Ren'Py source project. This mode does "
+                             "not use the SDK; select a prebuilt distribution.")
         if tipo == "runtime":
-            log("Runtime Ren'Py %s detectado." % _version_renpy(mod_root))
+            log("Ren'Py %s runtime detected." % _version_renpy(mod_root))
             return _compilar_runtime(
                 base, mod_root, output, incluir_docs=incluir_docs,
                 crear_zip=crear_zip, abrir_juego=abrir_juego, log=log,
@@ -209,12 +209,12 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
             needed *= 2
         output = _validar_salida(base, overlay, output, needed)
 
-        log("Validación correcta.")
-        status("Copiando base DDLC...")
+        log("Validation OK.")
+        status("Copying DDLC base...")
         staging = Path(tempfile.mkdtemp(prefix=output.name + "-build-",
                                         dir=str(output.parent)))
         try:
-            log("Copiando base DDLC...")
+            log("Copying DDLC base...")
             _copiar_arbol(base, staging, log, cancelar, progress)
             if cancelar and cancelar.is_set():
                 raise BuildCancelada()
@@ -222,66 +222,66 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
             firstrun = staging / "game" / "firstrun"
             if firstrun.exists():
                 firstrun.unlink()
-                log("firstrun eliminado.")
+                log("firstrun removed.")
 
-            status("Copiando overlay...")
+            status("Copying overlay...")
             overlay_done = 0
             for rel in OVERLAY_RPAS:
                 src = overlay / rel
                 dst = staging / rel
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 overlay_done += _copiar_archivo(
-                    src, dst, cancelar, progress, "Copiando overlay",
+                    src, dst, cancelar, progress, "Copying overlay",
                     max(overlay_bytes, 1), overlay_done)
                 if cancelar and cancelar.is_set():
                     raise BuildCancelada()
                 if _sha256(src) != _sha256(dst):
-                    raise BuildError("No se copió bien %s." % rel)
-                log("Copiado %s." % rel)
+                    raise BuildError("Could not copy %s correctly." % rel)
+                log("Copied %s." % rel)
 
             if incluir_docs:
                 for nombre in DOCS:
                     src = overlay / nombre
                     if src.is_file():
                         shutil.copy2(src, staging / nombre)
-                        log("Copiado %s." % nombre)
+                        log("Copied %s." % nombre)
 
             if (staging / "game" / "firstrun").exists():
-                raise BuildError("firstrun sigue presente en el build.")
-            log("Verificando build...")
-            status("Verificando build...")
-            progress("Verificando build", 1, 1)
+                raise BuildError("firstrun is still present in the build.")
+            log("Verifying build...")
+            status("Verifying build...")
+            progress("Verifying build", 1, 1)
             for rel in BASE_RPAS:
                 p = staging / rel
                 if not p.is_file() or not _rpa_ok(p):
-                    raise BuildError("Build incompleto: %s." % rel)
+                    raise BuildError("Incomplete build: %s." % rel)
             for rel, hash_base in base_assets.items():
                 if _sha256(staging / rel) != hash_base:
-                    raise BuildError("Se modificó un asset base: %s." % rel)
+                    raise BuildError("A base asset was modified: %s." % rel)
 
             if output.exists():
-                raise BuildError("La salida apareció mientras se compilaba.")
+                raise BuildError("Output appeared while building.")
             staging.replace(output)
-            log("Carpeta jugable creada: %s" % output)
+            log("Playable folder created: %s" % output)
         except Exception:
             shutil.rmtree(staging, ignore_errors=True)
             raise
 
         zip_final = _crear_zip(
             output, log, status, progress, cancelar) if crear_zip else None
-        status("Listo")
-        progress("Listo", 1, 1)
+        status("Ready")
+        progress("Ready", 1, 1)
 
         if abrir_juego:
             exe = find_launcher(output)
             if exe:
-                log("Abriendo %s..." % exe.name)
+                log("Opening %s..." % exe.name)
                 try:
                     open_launcher(exe, cwd=output)
                 except Exception as e:
-                    log("No se pudo abrir el juego: %s" % e)
+                    log("Could not open the game: %s" % e)
             else:
-                log("No encontré un lanzador para abrir.")
+                log("No launcher found to open.")
 
         return output, zip_final
     finally:

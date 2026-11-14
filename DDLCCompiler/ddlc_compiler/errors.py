@@ -1,4 +1,4 @@
-"""Errores propios del compilador."""
+"""Compiler-specific errors."""
 
 
 class BuildError(Exception):

@@ -1,4 +1,4 @@
-"""Operaciones de archivos, hashes, copia y ZIP."""
+"""File operations, hashes, copies, and ZIP."""
 import hashlib
 import os
 import shutil
@@ -48,15 +48,15 @@ def _extraer_zip(zip_path, destino, cancelar=None):
             partes = PurePosixPath(nombre).parts
             if not partes or PurePosixPath(nombre).is_absolute() or \
                ".." in partes or ":" in partes[0]:
-                raise BuildError("El ZIP contiene una ruta no permitida: %s" % nombre)
+                raise BuildError("The ZIP contains a disallowed path: %s" % nombre)
             if ((info.external_attr >> 16) & 0o170000) == 0o120000:
-                raise BuildError("El ZIP contiene un enlace simbólico: %s" % nombre)
+                raise BuildError("The ZIP contains a symbolic link: %s" % nombre)
             total_archivos += 1
             total_bytes += info.file_size
             if total_archivos > MAX_ZIP_FILES:
-                raise BuildError("El ZIP tiene demasiados archivos.")
+                raise BuildError("The ZIP has too many files.")
             if total_bytes > MAX_ZIP_BYTES:
-                raise BuildError("El ZIP descomprimido supera el límite permitido.")
+                raise BuildError("The extracted ZIP exceeds the allowed size.")
             destino_archivo = Path(destino).joinpath(*partes)
             if info.is_dir():
                 destino_archivo.mkdir(parents=True, exist_ok=True)
@@ -133,8 +133,8 @@ def _copiar_archivo(origen, destino, cancelar, progress, etiqueta, total,
 
 
 def _copiar_arbol(origen, destino, log, cancelar, progress,
-                  filtro=_ignorar_base, etiqueta="Copiando base",
-                  resumen="Base copiada"):
+                  filtro=_ignorar_base, etiqueta="Copying base",
+                  resumen="Base copied"):
     origen = Path(origen)
     destino = Path(destino)
     total_bytes = _tam_arbol(origen, filtro)
@@ -162,7 +162,7 @@ def _copiar_arbol(origen, destino, log, cancelar, progress,
                 src, dst, cancelar, progress, etiqueta,
                 max(total_bytes, 1), copiados_bytes)
             hechos += 1
-    log("%s: %d archivos." % (resumen, hechos))
+    log("%s: %d files." % (resumen, hechos))
 
 
 def _archivos_faltantes(origen, destino):

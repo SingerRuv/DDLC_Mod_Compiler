@@ -1,8 +1,8 @@
-"""Constantes y rutas de Compilar DDLC."""
+"""DDLC Compiler constants and paths."""
 from pathlib import Path
 import sys
 
-APP = "Compilar DDLC"
+APP = "DDLC Compiler"
 MAX_ZIP_FILES = 200000
 MAX_ZIP_BYTES = 4 * 1024 * 1024 * 1024
 COPY_CHUNK = 1024 * 1024
@@ -17,17 +17,17 @@ OVERLAY_RPAS = ("game/scripts.rpa", "game/mod_assets.rpa")
 
 
 def app_dir():
-    """Carpeta de la herramienta (junto al .exe o al paquete fuente)."""
+    """Tool folder (next to the executable or the source package)."""
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent.parent
 
 
 def resource_path(nombre):
-    """Ruta de un recurso empaquetado por PyInstaller."""
+    """Path to a resource bundled by PyInstaller."""
     base = getattr(sys, "_MEIPASS", None)
     return Path(base) / nombre if base else app_dir() / nombre
 
 
-LOG_PATH = (app_dir() / "CompilarDDLC.log" if sys.platform == "win32"
-            else Path.home() / ".compilar_ddlc" / "CompilarDDLC.log")
+LOG_PATH = (app_dir() / "DDLCCompiler.log" if sys.platform == "win32"
+            else Path.home() / ".ddlc_compiler" / "DDLCCompiler.log")

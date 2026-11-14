@@ -1,4 +1,4 @@
-"""Adaptaciones de plataforma para lanzar juegos y abrir carpetas."""
+"""Platform helpers for launching games and opening folders."""
 import os
 import subprocess
 import sys
@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def find_launcher(root):
-    """Devuelve el ejecutable/app/script principal de un juego o runtime."""
+    """Return the main executable/app/script for a game or runtime."""
     r = Path(root)
 
     if sys.platform == "win32":
@@ -50,7 +50,7 @@ def find_launcher(root):
 
 
 def open_launcher(path, cwd=None):
-    """Abre un lanzador respetando la plataforma."""
+    """Open a launcher according to the platform."""
     path = Path(path)
     cwd = str(cwd) if cwd else None
     if sys.platform == "darwin" and path.is_dir() and path.suffix == ".app":
@@ -61,7 +61,7 @@ def open_launcher(path, cwd=None):
 
 
 def open_path(path):
-    """Abre una carpeta en el explorador del sistema."""
+    """Open a folder in the system file manager."""
     path = str(path)
     if sys.platform == "win32":
         os.startfile(path)

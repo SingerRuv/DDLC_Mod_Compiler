@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-python "CompilarDDLC.py"
+python "DDLCCompiler.py"
 if errorlevel 1 pause
