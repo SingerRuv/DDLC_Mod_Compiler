@@ -165,3 +165,13 @@ Native binaries must be built on their target operating system. Windows cannot c
 - If the output folder exists and is not empty, the tool stops instead of overwriting files.
 - macOS builds are unsigned and not notarized.
 - Linux builds target Ubuntu 22.04; compatibility depends on the destination glibc version.
+
+## License and Disclaimer
+
+The source code of this project is licensed under the MIT License. See [LICENSE](LICENSE).
+
+This is an unofficial, fan-made tool. It is not affiliated with, endorsed by, sponsored by, or associated with Team Salvato.
+
+Doki Doki Literature Club! and related names, characters, and assets are the property of Team Salvato. This tool does not distribute DDLC game files. Mods and third-party assets remain subject to their respective authors' licenses.
+
+Third-party components included in the packaged builds, including Python, Tkinter, and PyInstaller, retain their own licenses.
