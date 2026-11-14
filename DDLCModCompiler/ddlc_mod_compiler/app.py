@@ -84,7 +84,7 @@ class App(tk.Tk):
         overlay_btns.grid(row=3, column=3, padx=(8, 0))
         ttk.Button(overlay_btns, text="Folder...",
                    command=self._elegir_overlay_dir).pack(side="left")
-        ttk.Button(overlay_btns, text="ZIPâ€¦",
+        ttk.Button(overlay_btns, text="ZIP...",
                    command=self._elegir_overlay_zip).pack(side="left", padx=(4, 0))
 
         ttk.Label(frm, text="3. Output folder").grid(row=4, column=0, sticky="w")
@@ -217,7 +217,7 @@ class App(tk.Tk):
                     else:
                         valor = pct
                     self.progress.configure(value=max(0, min(100, valor)))
-                    self.estado.set("%sâ€¦ %d%%" % (etiqueta, pct))
+                    self.estado.set("%s... %d%%" % (etiqueta, pct))
                 elif tipo == "done":
                     self._terminar(*msg)
         except queue.Empty:
@@ -307,7 +307,7 @@ class App(tk.Tk):
             self.spinner_var.set("")
             self._spin_job = None
             return
-        frames = "â ‹â ™â ¹â ¸â ¼â ´â ¦â §â ‡â "
+        frames = "|/-"
         self.spinner_var.set(frames[self._spin_idx % len(frames)])
         self._spin_idx += 1
         self._spin_job = self.after(100, self._spin_tick)
