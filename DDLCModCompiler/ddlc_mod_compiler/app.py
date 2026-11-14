@@ -121,7 +121,7 @@ class App(tk.Tk):
         ttk.Label(statusbar, textvariable=self.estado, anchor="w").pack(
             side="left", fill="x", expand=True, padx=(4, 0))
 
-        self.log = ScrolledText(frm, height=8, wrap="word")
+        self.log = ScrolledText(frm, height=8, wrap="word", state="disabled")
         self.log.grid(row=9, column=0, columnspan=4, sticky="nsew")
         frm.columnconfigure(0, weight=1)
         frm.columnconfigure(1, weight=1)
@@ -181,6 +181,14 @@ class App(tk.Tk):
         if p:
             self.output.set(p)
 
+    def _agregar_log(self, msg):
+        self.log.configure(state="normal")
+        try:
+            self.log.insert("end", msg + "\n")
+            self.log.see("end")
+        finally:
+            self.log.configure(state="disabled")
+
     def _log(self, msg):
         self._queue.put(("log", msg))
 
@@ -195,8 +203,7 @@ class App(tk.Tk):
             while True:
                 tipo, msg = self._queue.get_nowait()
                 if tipo == "log":
-                    self.log.insert("end", msg + "\n")
-                    self.log.see("end")
+                    self._agregar_log(msg)
                     _escribir_log(msg)
                 elif tipo == "estado":
                     self.estado.set(msg)
@@ -249,7 +256,9 @@ class App(tk.Tk):
         self.boton.config(state="disabled")
         self.progress.configure(value=0)
         self.estado.set("Starting...")
+        self.log.configure(state="normal")
         self.log.delete("1.0", "end")
+        self.log.configure(state="disabled")
         self._worker = threading.Thread(
             target=self._worker_run,
             args=(base, overlay, output, self.docs.get(), self.zip.get(),
