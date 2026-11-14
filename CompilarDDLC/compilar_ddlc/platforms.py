@@ -1,0 +1,71 @@
+"""Adaptaciones de plataforma para lanzar juegos y abrir carpetas."""
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def find_launcher(root):
+    """Devuelve el ejecutable/app/script principal de un juego o runtime."""
+    r = Path(root)
+
+    if sys.platform == "win32":
+        for nombre in ("DDLC.exe", "renpy.exe"):
+            if (r / nombre).is_file():
+                return r / nombre
+        try:
+            exes = sorted(p for p in r.glob("*.exe")
+                          if p.is_file() and
+                          not p.stem.lower().endswith("-32"))
+        except OSError:
+            exes = []
+        return exes[0] if exes else None
+
+    if sys.platform == "darwin":
+        try:
+            apps = sorted(p for p in r.glob("*.app") if p.is_dir())
+        except OSError:
+            apps = []
+        if apps:
+            return apps[0]
+
+    for nombre in ("DDLC.sh", "renpy.sh"):
+        if (r / nombre).is_file():
+            return r / nombre
+
+    try:
+        scripts = sorted(p for p in r.glob("*.sh") if p.is_file())
+    except OSError:
+        scripts = []
+    if scripts:
+        return scripts[0]
+
+    try:
+        for p in sorted(r.iterdir()):
+            if p.is_file() and os.access(str(p), os.X_OK):
+                return p
+    except OSError:
+        pass
+    return None
+
+
+def open_launcher(path, cwd=None):
+    """Abre un lanzador respetando la plataforma."""
+    path = Path(path)
+    cwd = str(cwd) if cwd else None
+    if sys.platform == "darwin" and path.is_dir() and path.suffix == ".app":
+        return subprocess.Popen(["open", str(path)], cwd=cwd)
+    if path.suffix.lower() in (".sh", ".command"):
+        return subprocess.Popen(["sh", str(path)], cwd=cwd)
+    return subprocess.Popen([str(path)], cwd=cwd)
+
+
+def open_path(path):
+    """Abre una carpeta en el explorador del sistema."""
+    path = str(path)
+    if sys.platform == "win32":
+        os.startfile(path)
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", path])
+    else:
+        subprocess.Popen(["xdg-open", path])
