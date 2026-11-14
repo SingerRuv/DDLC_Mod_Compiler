@@ -170,10 +170,11 @@ class App(tk.Tk):
             self.modo_label.configure(foreground="#b00020")
 
     def _sugerir_salida(self, p):
-        if not self.output.get() or self.output.get().endswith("(Compiled)"):
-            path = Path(p)
-            nombre = path.stem if path.is_file() else path.name
-            self.output.set(str(path.parent / (nombre + " (Compiled)")))
+        path = Path(p)
+        nombre = path.stem if path.is_file() else path.name
+        if not nombre.lower().startswith("ddlc "):
+            nombre = "DDLC " + nombre
+        self.output.set(str(path.parent / nombre))
 
     def _elegir_salida(self):
         p = filedialog.askdirectory(title="Output folder")

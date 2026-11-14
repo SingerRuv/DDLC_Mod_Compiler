@@ -59,7 +59,7 @@ Mod:
    - `DDLC overlay`
    - `Runtime Ren'Py 7` / `Runtime Ren'Py 8`
    - `Source project (unsupported)`
-4. Select the output folder. The default is `<mod> (Compiled)`.
+4. Select the output folder. The default is `DDLC <mod name>`.
 5. Choose the options:
    - include `Credits.txt`, `ThankYou.txt`, and `README.html` (overlay only);
    - create an uncompressed ZIP;
