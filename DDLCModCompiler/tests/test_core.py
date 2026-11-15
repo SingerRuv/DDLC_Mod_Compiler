@@ -62,6 +62,7 @@ class LibraryTests(unittest.TestCase):
                 mod = Path(tmp) / "My Mod"
                 mod.mkdir()
                 put(mod, "Game.exe")
+                put(mod, "Game.sh")
                 entry = library.entry_from_path(mod)
                 library.save_state([str(mod.parent)], [entry])
                 roots, paths = library.load_state()
