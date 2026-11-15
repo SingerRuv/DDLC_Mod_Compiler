@@ -11,14 +11,14 @@ mkdir -p "$DIST" "$WORK"
 
 python3 -m pip install -r "$ROOT/build/requirements-build.txt"
 python3 -m PyInstaller --noconfirm --clean --onefile \
-    --name DDLCModCompiler \
+    --name DDLCModManager \
     --add-data "$ROOT/DDLC.ico:." \
     --add-data "$ROOT/icons:icons" \
     --distpath "$DIST" \
     --workpath "$WORK/build" \
     --specpath "$WORK" \
-    "$ROOT/DDLCModCompiler.py"
+    "$ROOT/DDLCModManager.py"
 
-chmod +x "$DIST/DDLCModCompiler"
-tar -C "$DIST" -czf "$ROOT/dist/DDLCModCompiler-linux-$ARCH.tar.gz" DDLCModCompiler
-ls -lh "$DIST/DDLCModCompiler" "$ROOT/dist/DDLCModCompiler-linux-$ARCH.tar.gz"
+chmod +x "$DIST/DDLCModManager"
+tar -C "$DIST" -czf "$ROOT/dist/DDLCModManager-linux-$ARCH.tar.gz" DDLCModManager
+ls -lh "$DIST/DDLCModManager" "$ROOT/dist/DDLCModManager-linux-$ARCH.tar.gz"

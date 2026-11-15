@@ -11,7 +11,7 @@ mkdir -p "$DIST" "$WORK"
 
 python3 -m pip install -r "$ROOT/build/requirements-build.txt"
 python3 -m PyInstaller --noconfirm --clean --windowed \
-    --name DDLCModCompiler \
+    --name DDLCModManager \
     --icon "$ROOT/icon.icns" \
     --add-data "$ROOT/icon.png:." \
     --add-data "$ROOT/DDLC.ico:." \
@@ -19,8 +19,8 @@ python3 -m PyInstaller --noconfirm --clean --windowed \
     --distpath "$DIST" \
     --workpath "$WORK/build" \
     --specpath "$WORK" \
-    "$ROOT/DDLCModCompiler.py"
+    "$ROOT/DDLCModManager.py"
 ditto -c -k --sequesterRsrc --keepParent \
-    "$DIST/DDLCModCompiler.app" \
-    "$ROOT/dist/DDLCModCompiler-macos-$ARCH.zip"
-ls -lh "$ROOT/dist/DDLCModCompiler-macos-$ARCH.zip"
+    "$DIST/DDLCModManager.app" \
+    "$ROOT/dist/DDLCModManager-macos-$ARCH.zip"
+ls -lh "$ROOT/dist/DDLCModManager-macos-$ARCH.zip"

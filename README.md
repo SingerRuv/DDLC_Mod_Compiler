@@ -1,4 +1,4 @@
-# DDLC Mod Compiler
+# DDLC Mod Manager
 
 Cross-platform tool for building playable DDLC mods. It supports two mod structures:
 
@@ -11,12 +11,12 @@ The tool does not use the Ren'Py SDK. ZIP creation is optional and stored withou
 
 The latest Windows, Linux, macOS Intel, and macOS Apple Silicon builds are available from GitHub Actions:
 
-https://github.com/SingerRuv/DDLC_Mod_Compiler/actions
+https://github.com/SingerRuv/DDLC_Mod_Manager/actions
 
 The Windows executable is also included at:
 
 ```text
-DDLCModCompiler/DDLCModCompiler.exe
+DDLCModManager/DDLCModManager.exe
 ```
 
 On macOS, the app is unsigned. Open it with right-click > Open.
@@ -36,9 +36,9 @@ On macOS, the app is unsigned. Open it with right-click > Open.
 
 ## Requirements
 
-- **Windows:** `DDLCModCompiler.exe` does not require Python.
-- **macOS:** `DDLCModCompiler.app`; no signing or notarization.
-- **Linux:** the `DDLCModCompiler` binary; Tkinter is bundled by PyInstaller.
+- **Windows:** `DDLCModManager.exe` does not require Python.
+- **macOS:** `DDLCModManager.app`; no signing or notarization.
+- **Linux:** the `DDLCModManager` binary; Tkinter is bundled by PyInstaller.
 - **From source:** Python 3 with Tkinter.
 
 DDLC base:
@@ -58,9 +58,9 @@ The **Launcher** tab is shown first. It scans the fixed mods folder `~/DDLC Mods
 - Each mod is shown as a vertical card in three columns, with its logo, name, runtime/type, **Launch**, and **Open folder**.
 - Search by name/path/runtime, filter by runtime, and sort by name or modification date.
 - The current platform is shown at the top (`Windows`, `macOS`, or `Linux`), and the launcher is re-checked when **Launch** is pressed.
-- The fixed folder, external folders, and imported mods are saved in `~/.ddlc_mod_compiler/launcher.json`.
+- The fixed folder, external folders, and imported mods are saved in `~/.ddlc_mod_manager/launcher.json`.
 - New builds are added to the Launcher automatically.
-- Logos are loaded from `icon.png`, `logo.png`, `game/icon.png`, or `game/logo.png`; otherwise the DDLC Mod Compiler icon is used.
+- Logos are loaded from `icon.png`, `logo.png`, `game/icon.png`, or `game/logo.png`; otherwise the DDLC Mod Manager icon is used.
 
 ## Themes and Icons
 
@@ -69,7 +69,7 @@ The header includes a **sun/moon** button for switching between:
 - **Light:** native system theme with improved spacing and fonts.
 - **Dark:** a custom `clam` theme with a dark palette.
 
-The selected theme is saved in `~/.ddlc_mod_compiler/settings.json`.
+The selected theme is saved in `~/.ddlc_mod_manager/settings.json`.
 
 The interface uses a bundled set of monochrome PNG icons in two variants:
 
@@ -83,9 +83,9 @@ They cover the tabs, launcher toolbar, compiler actions, and card buttons. Icon 
 ## Compiler Usage
 
 1. Open the tool:
-   - Windows: `DDLCModCompiler/DDLCModCompiler.exe` or `DDLCModCompiler/DDLCModCompiler.bat`.
-   - macOS: `DDLCModCompiler.app`.
-   - Linux: `./DDLCModCompiler`.
+   - Windows: `DDLCModManager/DDLCModManager.exe` or `DDLCModManager/DDLCModManager.bat`.
+   - macOS: `DDLCModManager.app`.
+   - Linux: `./DDLCModManager`.
 2. Select the DDLC base.
 3. Select the mod folder or ZIP. The tool displays the detected mode:
    - `DDLC overlay`
@@ -138,17 +138,17 @@ They cover the tabs, launcher toolbar, compiler actions, and card buttons. Icon 
 ## Repository Layout
 
 ```text
-DDLC_Mod_Compiler/
+DDLC_Mod_Manager/
 ├── README.md
 ├── .github/workflows/build.yml
-└── DDLCModCompiler/
-    ├── DDLCModCompiler.exe
-    ├── DDLCModCompiler.bat
-    ├── DDLCModCompiler.py
+└── DDLCModManager/
+    ├── DDLCModManager.exe
+    ├── DDLCModManager.bat
+    ├── DDLCModManager.py
     ├── DDLC.ico
     ├── icon.png
     ├── icon.icns
-    ├── ddlc_mod_compiler/
+    ├── ddlc_mod_manager/
     │   ├── app.py
     │   ├── compiler_tab.py
     │   ├── launcher_tab.py
@@ -173,22 +173,22 @@ DDLC_Mod_Compiler/
 Windows:
 
 ```powershell
-.\DDLCModCompiler\build\build_windows.ps1
+.\DDLCModManager\build\build_windows.ps1
 ```
 
 Linux:
 
 ```sh
-bash DDLCModCompiler/build/build_linux.sh
+bash DDLCModManager/build/build_linux.sh
 ```
 
 macOS:
 
 ```sh
-bash DDLCModCompiler/build/build_macos.sh
+bash DDLCModManager/build/build_macos.sh
 ```
 
-Artifacts are written to `DDLCModCompiler/dist/`.
+Artifacts are written to `DDLCModManager/dist/`.
 
 GitHub Actions builds Windows, Linux, macOS Intel, and macOS Apple Silicon automatically and publishes the artifacts.
 
@@ -197,7 +197,7 @@ Native binaries must be built on their target operating system. Windows cannot c
 ## Tests
 
 ```sh
-python -m unittest discover -s DDLCModCompiler/tests -v
+python -m unittest discover -s DDLCModManager/tests -v
 ```
 
 The CI quality job also runs `compileall` and the backend tests.
@@ -208,7 +208,7 @@ The CI quality job also runs `compileall` and the backend tests.
 - Build MySilverLining with `DDLC-1.1.1-pc` as the base and `MySilverLining-0.6d-Renpy7Mod` as the mod.
 - MySilverLining's README mentions `python_packages`; the standard `python-packages` folder is used because that is what Ren'Py 7 loads.
 - The optional ZIP is stored without compression, which is much faster for large builds.
-- The log is written next to the executable on Windows and to `~/.ddlc_mod_compiler/DDLCModCompiler.log` on macOS/Linux.
+- The log is written next to the executable on Windows and to `~/.ddlc_mod_manager/DDLCModManager.log` on macOS/Linux.
 - If the output folder exists and is not empty, the tool asks whether to replace it or create a numbered copy.
 - macOS builds are unsigned and not notarized.
 - Linux builds target Ubuntu 22.04; compatibility depends on the destination glibc version.
@@ -222,3 +222,4 @@ This is an unofficial, fan-made tool. It is not affiliated with, endorsed by, sp
 Doki Doki Literature Club! and related names, characters, and assets are the property of Team Salvato. This tool does not distribute DDLC game files. Mods and third-party assets remain subject to their respective authors' licenses.
 
 Third-party components included in the packaged builds, including Python, Tkinter, and PyInstaller, retain their own licenses.
+- On first launch, existing data from `~/.ddlc_mod_compiler` is copied to `~/.ddlc_mod_manager` for compatibility.

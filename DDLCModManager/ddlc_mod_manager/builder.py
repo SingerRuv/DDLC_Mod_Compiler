@@ -1,4 +1,4 @@
-"""DDLC Mod Compiler build pipeline."""
+"""DDLC Mod Manager build pipeline."""
 import shutil
 import tempfile
 import zipfile

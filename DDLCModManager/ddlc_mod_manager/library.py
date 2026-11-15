@@ -3,11 +3,10 @@ import json
 import unicodedata
 from pathlib import Path
 
-from .config import MODS_ROOT
+from .config import DATA_DIR, MODS_ROOT
 from .mods import mod_kind
 from .platforms import find_launcher
 
-DATA_DIR = Path.home() / ".ddlc_mod_compiler"
 STORE_PATH = DATA_DIR / "launcher.json"
 LAUNCHER_SUFFIXES = (".exe", ".app", ".sh")
 SKIP_DIRS = {".git", "__pycache__", "game", "lib", "renpy", "saves",

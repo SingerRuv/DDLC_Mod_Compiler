@@ -10,9 +10,9 @@ Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $Dist, $Work -Force | Out-Null
 
 python -m PyInstaller --noconfirm --clean --onefile --windowed `
-    --name DDLCModCompiler --icon $Ico --add-data "$Ico;." --add-data "$Png;." --add-data "$Root/icons;icons" `
+    --name DDLCModManager --icon $Ico --add-data "$Ico;." --add-data "$Png;." --add-data "$Root/icons;icons" `
     --distpath $Dist --workpath (Join-Path $Work "build") --specpath $Work `
-    (Join-Path $Root "DDLCModCompiler.py")
+    (Join-Path $Root "DDLCModManager.py")
 
-Get-Item -LiteralPath (Join-Path $Dist "DDLCModCompiler.exe") |
+Get-Item -LiteralPath (Join-Path $Dist "DDLCModManager.exe") |
     Select-Object FullName, Length, LastWriteTime

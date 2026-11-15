@@ -9,10 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from ddlc_mod_compiler import builder, library  # noqa: E402
-from ddlc_mod_compiler.errors import BuildError  # noqa: E402
-from ddlc_mod_compiler.files import _extraer_zip  # noqa: E402
-from ddlc_mod_compiler.platforms import platform_name  # noqa: E402
+from ddlc_mod_manager import builder, config, library  # noqa: E402
+from ddlc_mod_manager.errors import BuildError  # noqa: E402
+from ddlc_mod_manager.files import _extraer_zip  # noqa: E402
+from ddlc_mod_manager.platforms import platform_name  # noqa: E402
 
 
 def put(base, rel, data=b"x"):
@@ -30,6 +30,19 @@ class AssetsTests(unittest.TestCase):
             for name in names:
                 self.assertTrue((ROOT / "icons" / variant / (name + ".png"))
                                 .is_file(), name)
+
+    def test_legacy_data_migration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = Path(tmp) / "old"
+            new = Path(tmp) / "new"
+            old.mkdir()
+            (old / "launcher.json").write_text("{}", encoding="utf-8")
+            (old / "settings.json").write_text('{"dark": true}',
+                                               encoding="utf-8")
+            self.assertTrue(config.migrate_legacy_data(old, new))
+            self.assertTrue((new / "launcher.json").is_file())
+            self.assertTrue((new / "settings.json").is_file())
+            self.assertFalse(config.migrate_legacy_data(old, new))
 
 
 class ZipSecurityTests(unittest.TestCase):

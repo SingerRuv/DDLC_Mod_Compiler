@@ -1,17 +1,18 @@
-"""DDLC Mod Compiler main window."""
+"""DDLC Mod Manager main window."""
 import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 from . import icons, theme
 from .compiler_tab import CompilerTab
-from .config import APP, load_theme, resource_path, save_theme
+from .config import APP, load_theme, migrate_legacy_data, resource_path, save_theme
 from .launcher_tab import LauncherTab
 
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+        migrate_legacy_data()
         self.dark = load_theme()
         self.palette = theme.apply(self, self.dark)
         try:
