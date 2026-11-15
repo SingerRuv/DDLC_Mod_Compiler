@@ -1,4 +1,6 @@
 """Launcher tab."""
+import queue
+import threading
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -16,22 +18,30 @@ class LauncherTab(ttk.Frame):
         self._external_roots = []
         self._extra_paths = []
         self._images = []
+        self._scan_cancel = threading.Event()
+        self._scan_queue = queue.Queue()
+        self._scan_thread = None
+        self._action_buttons = []
         self._build_ui()
         self._external_roots, self._extra_paths = load_state()
         self.status.set("Scanning mods... Please wait.")
-        self.after(100, self._scan_all)
+        self.after(100, self.start_scan)
 
     def _build_ui(self):
         top = ttk.Frame(self)
         top.pack(fill="x", pady=(0, 4))
         ttk.Button(top, text="Open mods folder",
                    command=self._open_mods_root).pack(side="left")
-        ttk.Button(top, text="Rescan", command=self.rescan).pack(
-            side="left", padx=(8, 0))
-        ttk.Button(top, text="Add folder...",
-                   command=self._add_folder).pack(side="left", padx=(8, 0))
-        ttk.Button(top, text="Import mod...",
-                   command=self._import_mod).pack(side="left", padx=(8, 0))
+        self.scan_btn = ttk.Button(top, text="Rescan",
+                                   command=self.start_scan)
+        self.scan_btn.pack(side="left", padx=(8, 0))
+        add_btn = ttk.Button(top, text="Add folder...",
+                             command=self._add_folder)
+        add_btn.pack(side="left", padx=(8, 0))
+        import_btn = ttk.Button(top, text="Import mod...",
+                                command=self._import_mod)
+        import_btn.pack(side="left", padx=(8, 0))
+        self._action_buttons = [add_btn, import_btn]
         ttk.Label(self, text="Mods folder: %s" % MODS_ROOT).pack(
             anchor="w", pady=(0, 4))
         ttk.Label(self, textvariable=self.status).pack(anchor="w", pady=(0, 8))
@@ -55,12 +65,74 @@ class LauncherTab(ttk.Frame):
             "<Configure>",
             lambda e: self.canvas.itemconfigure(self._window, width=e.width))
 
-    def _scan_all(self):
+    def is_scanning(self):
+        return bool(self._scan_thread and self._scan_thread.is_alive())
+
+    def start_scan(self):
+        if self.is_scanning():
+            return
+        self._scan_cancel.clear()
         self.status.set("Scanning mods... Please wait.")
-        self.update_idletasks()
-        ensure_mods_root()
-        roots = [str(MODS_ROOT)] + self._external_roots
-        entries = scan_roots(roots)
+        self.scan_btn.configure(text="Cancel scan", command=self.cancel_scan)
+        for button in self._action_buttons:
+            button.configure(state="disabled")
+        roots = [str(MODS_ROOT)] + list(self._external_roots)
+        extra = list(self._extra_paths)
+        self._scan_thread = threading.Thread(
+            target=self._scan_worker, args=(roots, extra), daemon=True)
+        self._scan_thread.start()
+        self.after(100, self._poll_scan)
+
+    def cancel_scan(self):
+        if self.is_scanning():
+            self._scan_cancel.set()
+            self.status.set("Cancelling scan...")
+
+    def rescan(self):
+        self.start_scan()
+
+    def _scan_worker(self, roots, extra):
+        try:
+            entries = scan_roots(roots, self._scan_cancel)
+            if not self._scan_cancel.is_set():
+                for path in extra:
+                    if self._scan_cancel.is_set():
+                        break
+                    entry = entry_from_path(path)
+                    if entry:
+                        entries.append(entry)
+            if self._scan_cancel.is_set():
+                self._scan_queue.put(("cancelled", None))
+            else:
+                self._scan_queue.put(("done", entries))
+        except Exception as exc:
+            self._scan_queue.put(("error", str(exc)))
+
+    def _poll_scan(self):
+        try:
+            kind, payload = self._scan_queue.get_nowait()
+        except queue.Empty:
+            if self.is_scanning():
+                self.after(100, self._poll_scan)
+            else:
+                self._finish_scan()
+            return
+        self._scan_thread = None
+        if kind == "done":
+            self._apply_entries(payload)
+            self.status.set("%d runnable mods found." % len(self._entries))
+        elif kind == "cancelled":
+            self.status.set("Scan cancelled.")
+        else:
+            self.status.set("Scan failed: %s" % payload)
+        self._finish_scan()
+
+    def _finish_scan(self):
+        self.scan_btn.configure(text="Rescan", command=self.start_scan)
+        for button in self._action_buttons:
+            button.configure(state="normal")
+
+    def _apply_entries(self, entries):
         by_path = {entry["path"]: entry for entry in entries}
         for path in self._extra_paths:
             entry = entry_from_path(path)
@@ -69,12 +141,11 @@ class LauncherTab(ttk.Frame):
         self._entries = sorted(by_path.values(),
                                key=lambda e: e["name"].casefold())
         self._extra_paths = [entry["path"] for entry in self._entries]
-        save_state(self._external_roots, self._entries)
+        try:
+            save_state(self._external_roots, self._entries)
+        except OSError as exc:
+            self.status.set("Could not save launcher state: %s" % exc)
         self._render()
-        self.status.set("%d runnable mods found." % len(self._entries))
-
-    def rescan(self):
-        self._scan_all()
 
     def _open_mods_root(self):
         ensure_mods_root()
@@ -87,7 +158,7 @@ class LauncherTab(ttk.Frame):
         resolved = str(Path(path).resolve())
         if resolved not in self._external_roots:
             self._external_roots.append(resolved)
-        self._scan_all()
+        self.start_scan()
 
     def _import_mod(self):
         path = filedialog.askdirectory(title="Import mod folder")
@@ -100,7 +171,7 @@ class LauncherTab(ttk.Frame):
             return
         if entry["path"] not in self._extra_paths:
             self._extra_paths.append(entry["path"])
-        self._scan_all()
+        self.start_scan()
 
     def add_build(self, path):
         entry = entry_from_path(path)
@@ -108,7 +179,8 @@ class LauncherTab(ttk.Frame):
             return
         if entry["path"] not in self._extra_paths:
             self._extra_paths.append(entry["path"])
-        self._scan_all()
+        if not self.is_scanning():
+            self._apply_entries(self._entries)
 
     def _render(self):
         for child in self.cards.winfo_children():

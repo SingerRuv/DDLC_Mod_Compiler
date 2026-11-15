@@ -5,7 +5,8 @@ import zipfile
 from pathlib import Path
 
 from .config import (BASE_ASSETS, BASE_PY, BASE_RPAS, DOCS, MARGEN_DISCO,
-                     OVERLAY_RPAS)
+                     OVERLAY_RPAS, PHASE_COPY_ASSETS, PHASE_COPY_MOD,
+                     PHASE_COPY_OVERLAY, PHASE_VERIFY, PHASE_ZIP)
 from .errors import BuildCancelada, BuildError
 from .files import (_archivos_faltantes, _copiar_arbol, _copiar_archivo,
                     _ignorar_base, _ignorar_runtime, _no_vacio, _norm,
@@ -36,7 +37,7 @@ def _agregar_assets(base, staging, log, cancelar, progress):
             raise BuildCancelada()
         dst.parent.mkdir(parents=True, exist_ok=True)
         hechos += _copiar_archivo(src, dst, cancelar, progress,
-                                  "Copying assets", max(total, 1), hechos)
+                                  PHASE_COPY_ASSETS, max(total, 1), hechos)
         log("Copied %s." % rel)
     if not items:
         log("The mod already has all base assets.")
@@ -106,7 +107,7 @@ def _crear_zip(output, log, status, progress, cancelar, overwrite=False):
                 arc = output.name + "/" + \
                     str(p.relative_to(output)).replace("\\", "/")
                 z.write(p, arc)
-                progress("Creating ZIP", i, max(total_zip, 1))
+                progress(PHASE_ZIP, i, max(total_zip, 1))
         if zip_final.exists():
             zip_final.unlink()
         zip_tmp.replace(zip_final)
@@ -116,6 +117,33 @@ def _crear_zip(output, log, status, progress, cancelar, overwrite=False):
             zip_tmp.unlink()
         raise
     return zip_final
+
+
+def _abrir_juego(output, log):
+    exe = find_launcher(output)
+    if exe:
+        log("Opening %s..." % exe.name)
+        try:
+            open_launcher(exe, cwd=output)
+        except Exception as exc:
+            log("Could not open the game: %s" % exc)
+    else:
+        log("No launcher found to open.")
+
+
+def _finalizar_build(output, staging, crear_zip, overwrite, abrir_juego,
+                     log, status, progress, cancelar):
+    if output.exists() and not overwrite:
+        raise BuildError("Output appeared while building.")
+    _instalar_salida(staging, output)
+    log("Playable folder created: %s" % output)
+    zip_final = _crear_zip(output, log, status, progress, cancelar,
+                           overwrite=overwrite) if crear_zip else None
+    status("Ready")
+    progress("Ready", 1, 1)
+    if abrir_juego:
+        _abrir_juego(output, log)
+    return output, zip_final
 
 
 def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
@@ -141,7 +169,7 @@ def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
         status("Copying mod...")
         log("Copying mod...")
         _copiar_arbol(mod, staging, log, cancelar, progress,
-                      filtro=_ignorar_runtime, etiqueta="Copying mod",
+                      filtro=_ignorar_runtime, etiqueta=PHASE_COPY_MOD,
                       resumen="Mod copied")
         if cancelar and cancelar.is_set():
             raise BuildCancelada()
@@ -151,7 +179,7 @@ def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
         _agregar_assets(base, staging, log, cancelar, progress)
 
         status("Verifying build...")
-        progress("Verifying build", 1, 1)
+        progress(PHASE_VERIFY, 1, 1)
         for rel in BASE_ASSETS:
             p = staging / rel
             if not p.is_file() or not _rpa_ok(p):
@@ -163,31 +191,13 @@ def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
             raise BuildError("Incomplete build: mod launcher not found.")
         log("Mod launcher: %s" % exe.name)
 
-        if output.exists() and not overwrite:
-            raise BuildError("Output appeared while building.")
-        _instalar_salida(staging, output)
-        log("Playable folder created: %s" % output)
+        result = _finalizar_build(
+            output, staging, crear_zip, overwrite, abrir_juego, log,
+            status, progress, cancelar)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
         raise
-
-    zip_final = _crear_zip(output, log, status, progress, cancelar,
-                           overwrite=overwrite) if crear_zip else None
-    status("Ready")
-    progress("Ready", 1, 1)
-
-    if abrir_juego:
-        exe = find_launcher(output)
-        if exe:
-            log("Opening %s..." % exe.name)
-            try:
-                open_launcher(exe, cwd=output)
-            except Exception as e:
-                log("Could not open the game: %s" % e)
-        else:
-            log("No launcher found to open.")
-
-    return output, zip_final
+    return result
 
 
 def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
@@ -262,7 +272,7 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
                 dst = staging / rel
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 overlay_done += _copiar_archivo(
-                    src, dst, cancelar, progress, "Copying overlay",
+                    src, dst, cancelar, progress, PHASE_COPY_OVERLAY,
                     max(overlay_bytes, 1), overlay_done)
                 if cancelar and cancelar.is_set():
                     raise BuildCancelada()
@@ -281,7 +291,7 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
                 raise BuildError("firstrun is still present in the build.")
             log("Verifying build...")
             status("Verifying build...")
-            progress("Verifying build", 1, 1)
+            progress(PHASE_VERIFY, 1, 1)
             for rel in BASE_RPAS:
                 p = staging / rel
                 if not p.is_file() or not _rpa_ok(p):
@@ -290,32 +300,14 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
                 if _sha256(staging / rel) != hash_base:
                     raise BuildError("A base asset was modified: %s." % rel)
 
-            if output.exists() and not overwrite:
-                raise BuildError("Output appeared while building.")
-            _instalar_salida(staging, output)
-            log("Playable folder created: %s" % output)
+            result = _finalizar_build(
+                output, staging, crear_zip, overwrite, abrir_juego, log,
+                status, progress, cancelar)
         except Exception:
             shutil.rmtree(staging, ignore_errors=True)
             raise
 
-        zip_final = _crear_zip(
-            output, log, status, progress, cancelar,
-            overwrite=overwrite) if crear_zip else None
-        status("Ready")
-        progress("Ready", 1, 1)
-
-        if abrir_juego:
-            exe = find_launcher(output)
-            if exe:
-                log("Opening %s..." % exe.name)
-                try:
-                    open_launcher(exe, cwd=output)
-                except Exception as e:
-                    log("Could not open the game: %s" % e)
-            else:
-                log("No launcher found to open.")
-
-        return output, zip_final
+        return result
     finally:
         if tmp_zip:
             shutil.rmtree(tmp_zip, ignore_errors=True)

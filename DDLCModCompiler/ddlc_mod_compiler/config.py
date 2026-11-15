@@ -16,6 +16,13 @@ BASE_PY = "game/python-packages"
 OVERLAY_RPAS = ("game/scripts.rpa", "game/mod_assets.rpa")
 MODS_ROOT = Path.home() / "DDLC Mods"
 
+PHASE_COPY_MOD = "Copying mod"
+PHASE_COPY_ASSETS = "Copying assets"
+PHASE_COPY_BASE = "Copying base"
+PHASE_COPY_OVERLAY = "Copying overlay"
+PHASE_VERIFY = "Verifying"
+PHASE_ZIP = "Creating ZIP"
+
 
 def ensure_mods_root():
     MODS_ROOT.mkdir(parents=True, exist_ok=True)

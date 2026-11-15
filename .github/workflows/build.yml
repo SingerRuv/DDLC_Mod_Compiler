@@ -10,6 +10,16 @@ permissions:
   contents: read
 
 jobs:
+  quality:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q DDLCModCompiler/ddlc_mod_compiler
+      - run: python -m unittest discover -s DDLCModCompiler/tests -v
+
   windows:
     runs-on: windows-latest
     steps:

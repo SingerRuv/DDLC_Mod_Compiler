@@ -9,7 +9,9 @@ from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from .builder import compilar
-from .config import APP, LOG_PATH, MODS_ROOT, ensure_mods_root
+from .config import (APP, LOG_PATH, MODS_ROOT, PHASE_COPY_ASSETS,
+                     PHASE_COPY_BASE, PHASE_COPY_MOD, PHASE_COPY_OVERLAY,
+                     PHASE_VERIFY, PHASE_ZIP, ensure_mods_root)
 from .errors import BuildCancelada
 from .mods import detectar_mod
 from .platforms import open_path
@@ -224,17 +226,17 @@ class CompilerTab(ttk.Frame):
                 elif tipo == "progress":
                     etiqueta, hecho, total = msg
                     pct = int(hecho * 100 / total) if total else 0
-                    if etiqueta == "Copying mod":
+                    if etiqueta == PHASE_COPY_MOD:
                         valor = int(pct * 0.8)
-                    elif etiqueta == "Copying assets":
+                    elif etiqueta == PHASE_COPY_ASSETS:
                         valor = 80 + int(pct * 0.1)
-                    elif etiqueta == "Copying base":
+                    elif etiqueta == PHASE_COPY_BASE:
                         valor = int(pct * 0.8)
-                    elif etiqueta == "Copying overlay":
+                    elif etiqueta == PHASE_COPY_OVERLAY:
                         valor = 80 + int(pct * 0.1)
-                    elif etiqueta.startswith("Verifying"):
+                    elif etiqueta.startswith(PHASE_VERIFY):
                         valor = 95
-                    elif etiqueta.startswith("Creating ZIP"):
+                    elif etiqueta.startswith(PHASE_ZIP):
                         valor = 95 + int(pct * 0.05)
                     else:
                         valor = pct

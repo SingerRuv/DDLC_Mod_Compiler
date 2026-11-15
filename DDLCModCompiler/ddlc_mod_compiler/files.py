@@ -5,7 +5,7 @@ import shutil
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from .config import COPY_CHUNK, MAX_ZIP_BYTES, MAX_ZIP_FILES
+from .config import COPY_CHUNK, MAX_ZIP_BYTES, MAX_ZIP_FILES, PHASE_COPY_BASE
 from .errors import BuildCancelada, BuildError
 
 
@@ -40,6 +40,7 @@ def _no_vacio(path):
 def _extraer_zip(zip_path, destino, cancelar=None):
     total_archivos = 0
     total_bytes = 0
+    base_res = Path(destino).resolve()
     with zipfile.ZipFile(zip_path, "r") as z:
         for info in z.infolist():
             if cancelar and cancelar.is_set():
@@ -47,7 +48,7 @@ def _extraer_zip(zip_path, destino, cancelar=None):
             nombre = info.filename.replace("\\", "/")
             partes = PurePosixPath(nombre).parts
             if not partes or PurePosixPath(nombre).is_absolute() or \
-               ".." in partes or ":" in partes[0]:
+               ".." in partes or any(":" in p for p in partes):
                 raise BuildError("The ZIP contains a disallowed path: %s" % nombre)
             if ((info.external_attr >> 16) & 0o170000) == 0o120000:
                 raise BuildError("The ZIP contains a symbolic link: %s" % nombre)
@@ -58,6 +59,9 @@ def _extraer_zip(zip_path, destino, cancelar=None):
             if total_bytes > MAX_ZIP_BYTES:
                 raise BuildError("The extracted ZIP exceeds the allowed size.")
             destino_archivo = Path(destino).joinpath(*partes)
+            destino_res = destino_archivo.resolve()
+            if destino_res != base_res and base_res not in destino_res.parents:
+                raise BuildError("The ZIP contains a disallowed path: %s" % nombre)
             if info.is_dir():
                 destino_archivo.mkdir(parents=True, exist_ok=True)
             else:
@@ -133,7 +137,7 @@ def _copiar_archivo(origen, destino, cancelar, progress, etiqueta, total,
 
 
 def _copiar_arbol(origen, destino, log, cancelar, progress,
-                  filtro=_ignorar_base, etiqueta="Copying base",
+                  filtro=_ignorar_base, etiqueta=PHASE_COPY_BASE,
                   resumen="Base copied"):
     origen = Path(origen)
     destino = Path(destino)

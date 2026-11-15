@@ -106,6 +106,16 @@ def detectar_mod(path):
     return tipo, (_version_renpy(root) if tipo == "runtime" else "")
 
 
+def mod_kind(root):
+    """Return a short human-readable kind for a runnable mod."""
+    r = Path(root)
+    if _runtime_ok(r):
+        return "Ren'Py %s" % _version_renpy(r)
+    if (r / "game" / "scripts.rpa").is_file():
+        return "DDLC build"
+    return "Runnable mod"
+
+
 def validar_base(base, solo_assets=False):
     b = Path(base)
     if not b.is_dir():

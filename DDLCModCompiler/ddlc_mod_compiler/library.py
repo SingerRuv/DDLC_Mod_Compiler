@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from .config import MODS_ROOT
-from .mods import _runtime_ok, _version_renpy
+from .mods import mod_kind
 from .platforms import find_launcher
 
 DATA_DIR = Path.home() / ".ddlc_mod_compiler"
@@ -24,30 +24,28 @@ def _logo_for(root):
 
 def entry_from_path(path):
     """Build one Launcher entry for a runnable mod folder, or None."""
-    root = Path(path)
-    if not root.is_dir():
+    try:
+        root = Path(path)
+        if not root.is_dir():
+            return None
+        launcher = find_launcher(root)
+        if launcher is None or launcher.suffix.lower() not in LAUNCHER_SUFFIXES:
+            return None
+        if launcher.suffix.lower() == ".app" and not launcher.is_dir():
+            return None
+        kind = mod_kind(root)
+        return {
+            "path": str(root.resolve()),
+            "name": root.name,
+            "launcher": str(launcher.resolve()),
+            "kind": kind,
+            "logo": _logo_for(root),
+        }
+    except OSError:
         return None
-    launcher = find_launcher(root)
-    if launcher is None or launcher.suffix.lower() not in LAUNCHER_SUFFIXES:
-        return None
-    if launcher.suffix.lower() == ".app" and not launcher.is_dir():
-        return None
-    if _runtime_ok(root):
-        kind = "Ren'Py %s" % _version_renpy(root)
-    elif (root / "game" / "scripts.rpa").is_file():
-        kind = "DDLC build"
-    else:
-        kind = "Runnable mod"
-    return {
-        "path": str(root.resolve()),
-        "name": root.name,
-        "launcher": str(launcher.resolve()),
-        "kind": kind,
-        "logo": _logo_for(root),
-    }
 
 
-def scan_mods(root):
+def scan_mods(root, cancel=None):
     """Recursively find runnable mods, without entering a detected mod."""
     root = Path(root)
     if not root.is_dir():
@@ -55,26 +53,41 @@ def scan_mods(root):
     found = {}
 
     def visit(directory):
+        if cancel and cancel.is_set():
+            return
         entry = entry_from_path(directory)
         if entry:
             found[entry["path"]] = entry
             return
         try:
             children = [p for p in directory.iterdir()
-                        if p.is_dir() and p.name not in SKIP_DIRS]
+                        if p.is_dir() and not p.is_symlink() and
+                        p.name not in SKIP_DIRS]
         except OSError:
             return
         for child in children:
+            if cancel and cancel.is_set():
+                return
             visit(child)
 
     visit(root)
     return sorted(found.values(), key=lambda e: e["name"].casefold())
 
 
-def scan_roots(roots):
+def scan_roots(roots, cancel=None):
     found = {}
+    seen = set()
     for root in roots:
-        for entry in scan_mods(root):
+        if cancel and cancel.is_set():
+            break
+        try:
+            key = str(Path(root).resolve())
+        except OSError:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        for entry in scan_mods(root, cancel):
             found[entry["path"]] = entry
     return sorted(found.values(), key=lambda e: e["name"].casefold())
 
@@ -107,13 +120,6 @@ def save_state(external_roots, entries):
         "external_roots": list(external_roots),
         "mods": [e["path"] for e in entries],
     }
-    STORE_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-
-def entries_from_paths(paths):
-    entries = []
-    for path in paths:
-        entry = entry_from_path(path)
-        if entry:
-            entries.append(entry)
-    return entries
+    tmp = STORE_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    tmp.replace(STORE_PATH)

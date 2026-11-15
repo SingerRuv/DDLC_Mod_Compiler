@@ -172,6 +172,14 @@ GitHub Actions builds Windows, Linux, macOS Intel, and macOS Apple Silicon autom
 
 Native binaries must be built on their target operating system. Windows cannot cross-compile macOS or Linux.
 
+## Tests
+
+```sh
+python -m unittest discover -s DDLCModCompiler/tests -v
+```
+
+The CI quality job also runs `compileall` and the backend tests.
+
 ## Notes
 
 - Source projects (`game/*.rpy` without a runtime) are not built: they need the corresponding SDK.
