@@ -30,18 +30,22 @@ class App(tk.Tk):
         self.geometry("900x500")
         self.minsize(760, 480)
 
-        self.header = tk.Frame(self, bg=self.palette["header"], height=38)
+        self.header = tk.Frame(self, bg=self.palette["header"], height=42)
         self.header.pack(fill="x")
         self.header.pack_propagate(False)
         self.title_label = ttk.Label(self.header, text=APP,
                                      style="Title.TLabel")
-        self.title_label.pack(side="left", padx=(14, 0), pady=8)
-        self.theme_button = ttk.Button(
+        self.title_label.pack(side="left", padx=(14, 0), pady=9)
+        self.theme_button = tk.Button(
             self.header, text="Light" if self.dark else "Dark",
             command=self._toggle_theme,
             image=icons.get_icon("sun" if self.dark else "moon", self.dark),
-            compound="left")
-        self.theme_button.pack(side="right", padx=(0, 12), pady=6)
+            compound="left", relief="flat", bd=0, highlightthickness=0,
+            bg=self.palette["header"], fg=self.palette["text"],
+            activebackground=self.palette["button_active"],
+            activeforeground=self.palette["text"],
+            font=("Segoe UI", 9), padx=10, pady=4, cursor="hand2")
+        self.theme_button.pack(side="right", padx=(0, 12), pady=4)
 
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True)
@@ -71,7 +75,10 @@ class App(tk.Tk):
         self.header.configure(bg=self.palette["header"])
         self.theme_button.configure(
             text="Light" if self.dark else "Dark",
-            image=icons.get_icon("sun" if self.dark else "moon", self.dark))
+            image=icons.get_icon("sun" if self.dark else "moon", self.dark),
+            bg=self.palette["header"], fg=self.palette["text"],
+            activebackground=self.palette["button_active"],
+            activeforeground=self.palette["text"])
         self.launcher.apply_theme(self.dark)
         self.compiler.apply_theme(self.dark)
         self._update_tab_icons()
