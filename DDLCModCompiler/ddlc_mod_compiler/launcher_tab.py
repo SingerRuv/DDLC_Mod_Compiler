@@ -224,13 +224,12 @@ class LauncherTab(ttk.Frame):
         buttons = ttk.Frame(card)
         buttons.grid(row=3, column=0, sticky="ew", pady=(8, 0))
         buttons.columnconfigure(0, weight=1)
-        buttons.columnconfigure(1, weight=1)
         ttk.Button(buttons, text="Launch",
                    command=lambda e=entry: self._launch(e)).grid(
             row=0, column=0, sticky="ew")
         ttk.Button(buttons, text="Open folder",
                    command=lambda e=entry: self._open_folder(e)).grid(
-            row=0, column=1, sticky="ew", padx=(6, 0))
+            row=1, column=0, sticky="ew", pady=(4, 0))
 
     def _logo(self, entry):
         candidates = [entry.get("logo"), resource_path("icon.png")]
