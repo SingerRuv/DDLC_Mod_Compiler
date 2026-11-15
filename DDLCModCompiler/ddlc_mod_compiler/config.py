@@ -1,4 +1,5 @@
 """DDLC Mod Compiler constants and paths."""
+import json
 from pathlib import Path
 import sys
 
@@ -44,3 +45,23 @@ def resource_path(nombre):
 
 LOG_PATH = (app_dir() / "DDLCModCompiler.log" if sys.platform == "win32"
             else Path.home() / ".ddlc_mod_compiler" / "DDLCModCompiler.log")
+SETTINGS_PATH = Path.home() / ".ddlc_mod_compiler" / "settings.json"
+
+
+def load_theme():
+    try:
+        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        return bool(data.get("dark", False))
+    except Exception:
+        return False
+
+
+def save_theme(dark):
+    try:
+        SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = SETTINGS_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"dark": bool(dark)}, indent=2),
+                       encoding="utf-8")
+        tmp.replace(SETTINGS_PATH)
+    except OSError:
+        pass

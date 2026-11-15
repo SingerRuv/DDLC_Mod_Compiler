@@ -21,6 +21,17 @@ def put(base, rel, data=b"x"):
     path.write_bytes(data)
 
 
+class AssetsTests(unittest.TestCase):
+    def test_icon_assets_exist(self):
+        names = ("launcher", "compiler", "folder", "archive", "refresh",
+                 "add-folder", "import", "build", "cancel", "play",
+                 "open-folder", "output-folder", "sun", "moon")
+        for variant in ("light", "dark"):
+            for name in names:
+                self.assertTrue((ROOT / "icons" / variant / (name + ".png"))
+                                .is_file(), name)
+
+
 class ZipSecurityTests(unittest.TestCase):
     def test_platform_name(self):
         self.assertIn(platform_name(), ("Windows", "macOS", "Linux"))

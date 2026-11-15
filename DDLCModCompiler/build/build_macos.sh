@@ -15,11 +15,11 @@ python3 -m PyInstaller --noconfirm --clean --windowed \
     --icon "$ROOT/icon.icns" \
     --add-data "$ROOT/icon.png:." \
     --add-data "$ROOT/DDLC.ico:." \
+    --add-data "$ROOT/icons:icons" \
     --distpath "$DIST" \
     --workpath "$WORK/build" \
     --specpath "$WORK" \
     "$ROOT/DDLCModCompiler.py"
-
 ditto -c -k --sequesterRsrc --keepParent \
     "$DIST/DDLCModCompiler.app" \
     "$ROOT/dist/DDLCModCompiler-macos-$ARCH.zip"

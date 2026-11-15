@@ -24,6 +24,8 @@ On macOS, the app is unsigned. Open it with right-click > Open.
 ## Features
 
 - Launcher tab for runnable mods.
+- Light and dark themes with a header toggle.
+- Line icons on tabs, toolbars, cards, and actions.
 - Automatic detection of DDLC overlays and prebuilt Ren'Py runtimes.
 - Ren'Py 7 and Ren'Py 8 runtime detection.
 - Optional output ZIP.
@@ -58,6 +60,24 @@ The **Launcher** tab is shown first. It scans the fixed mods folder `~/DDLC Mods
 - The fixed folder, external folders, and imported mods are saved in `~/.ddlc_mod_compiler/launcher.json`.
 - New builds are added to the Launcher automatically.
 - Logos are loaded from `icon.png`, `logo.png`, `game/icon.png`, or `game/logo.png`; otherwise the DDLC Mod Compiler icon is used.
+
+## Themes and Icons
+
+The header includes a **sun/moon** button for switching between:
+
+- **Light:** native system theme with improved spacing and fonts.
+- **Dark:** a custom `clam` theme with a dark palette.
+
+The selected theme is saved in `~/.ddlc_mod_compiler/settings.json`.
+
+The interface uses a bundled set of monochrome PNG icons in two variants:
+
+```text
+icons/light/*.png
+icons/dark/*.png
+```
+
+They cover the tabs, launcher toolbar, compiler actions, and card buttons. Icon PNGs are generated at development time with Pillow; runtime builds do not require Pillow.
 
 ## Compiler Usage
 

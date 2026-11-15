@@ -10,7 +10,7 @@ Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $Dist, $Work -Force | Out-Null
 
 python -m PyInstaller --noconfirm --clean --onefile --windowed `
-    --name DDLCModCompiler --icon $Ico --add-data "$Ico;." --add-data "$Png;." `
+    --name DDLCModCompiler --icon $Ico --add-data "$Ico;." --add-data "$Png;." --add-data "$Root/icons;icons" `
     --distpath $Dist --workpath (Join-Path $Work "build") --specpath $Work `
     (Join-Path $Root "DDLCModCompiler.py")
 

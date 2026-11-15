@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
-from .builder import compilar
+from . import icons, theme
 from .config import (APP, LOG_PATH, MODS_ROOT, PHASE_COPY_ASSETS,
                      PHASE_COPY_BASE, PHASE_COPY_MOD, PHASE_COPY_OVERLAY,
                      PHASE_VERIFY, PHASE_ZIP, ensure_mods_root)
@@ -28,9 +28,11 @@ def _escribir_log(linea):
 
 
 class CompilerTab(ttk.Frame):
-    def __init__(self, master, on_built=None):
+    def __init__(self, master, on_built=None, dark=False):
         super().__init__(master)
         self._on_built = on_built
+        self.dark = dark
+        self._icon_buttons = []
         self.base = tk.StringVar()
         self.overlay = tk.StringVar()
         self.output = tk.StringVar()
@@ -46,8 +48,26 @@ class CompilerTab(ttk.Frame):
         self._cancel = threading.Event()
         self._worker = None
         self._build_ui()
+        self.apply_theme(self.dark)
         self.overlay.trace_add("write", lambda *_: self._actualizar_modo())
         self.after(100, self._pump)
+
+    def _button(self, parent, text, icon_name, command):
+        button = ttk.Button(
+            parent, text=text, image=icons.get_icon(icon_name, self.dark),
+            compound="left", command=command)
+        self._icon_buttons.append((button, icon_name))
+        return button
+
+    def apply_theme(self, dark):
+        self.dark = dark
+        palette = theme.palette(dark)
+        for button, icon_name in self._icon_buttons:
+            button.configure(image=icons.get_icon(icon_name, dark))
+        if hasattr(self, "log"):
+            self.log.configure(
+                bg=palette["entry"], fg=palette["text"],
+                insertbackground=palette["text"])
 
     def _build_ui(self):
         frm = ttk.Frame(self, padding=12)
@@ -56,7 +76,8 @@ class CompilerTab(ttk.Frame):
         ttk.Label(frm, text="1. DDLC base").grid(row=0, column=0, sticky="w")
         ttk.Entry(frm, textvariable=self.base).grid(row=1, column=0, columnspan=3,
                                                      sticky="ew", pady=(2, 8))
-        ttk.Button(frm, text="Choose folder...", command=self._elegir_base).grid(
+        self._button(frm, "Choose folder...", "folder",
+                     self._elegir_base).grid(
             row=1, column=3, padx=(8, 0))
 
         ttk.Label(frm, text="2. Mod (folder or ZIP)").grid(row=2, column=0,
@@ -68,17 +89,17 @@ class CompilerTab(ttk.Frame):
                                                        pady=(2, 8))
         overlay_btns = ttk.Frame(frm)
         overlay_btns.grid(row=3, column=3, padx=(8, 0))
-        ttk.Button(overlay_btns, text="Folder...",
-                   command=self._elegir_overlay_dir).pack(side="left")
-        ttk.Button(overlay_btns, text="ZIP...",
-                   command=self._elegir_overlay_zip).pack(side="left", padx=(4, 0))
+        self._button(overlay_btns, "Folder...", "folder",
+                     self._elegir_overlay_dir).pack(side="left")
+        self._button(overlay_btns, "ZIP...", "archive",
+                     self._elegir_overlay_zip).pack(side="left", padx=(4, 0))
 
-        ttk.Label(frm, text="3. Output folder (fixed)").grid(row=4, column=0,
+        ttk.Label(frm, text="3. Output folder").grid(row=4, column=0,
                                                              sticky="w")
         ttk.Entry(frm, textvariable=self.output, state="readonly").grid(
             row=5, column=0, columnspan=3, sticky="ew", pady=(2, 8))
-        ttk.Button(frm, text="Open output folder",
-                   command=self._abrir_salida).grid(
+        self._button(frm, "Open output folder", "output-folder",
+                     self._abrir_salida).grid(
             row=5, column=3, padx=(8, 0))
 
         checks = ttk.Frame(frm)
@@ -92,9 +113,9 @@ class CompilerTab(ttk.Frame):
 
         bar = ttk.Frame(frm)
         bar.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(4, 8))
-        self.boton = ttk.Button(bar, text="Build", command=self._iniciar)
+        self.boton = self._button(bar, "Build", "build", self._iniciar)
         self.boton.pack(side="left")
-        ttk.Button(bar, text="Cancel", command=self._cancelar).pack(
+        self._button(bar, "Cancel", "cancel", self._cancelar).pack(
             side="left", padx=(8, 0))
         self.progress = ttk.Progressbar(bar, mode="determinate", maximum=100,
                                         value=0, length=220)

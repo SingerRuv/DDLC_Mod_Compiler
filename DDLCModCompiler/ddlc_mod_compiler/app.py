@@ -3,14 +3,17 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from . import icons, theme
 from .compiler_tab import CompilerTab
-from .config import APP, resource_path
+from .config import APP, load_theme, resource_path, save_theme
 from .launcher_tab import LauncherTab
 
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.dark = load_theme()
+        self.palette = theme.apply(self, self.dark)
         try:
             if sys.platform == "win32":
                 icono = resource_path("DDLC.ico")
@@ -24,16 +27,54 @@ class App(tk.Tk):
         except Exception:
             pass
         self.title(APP)
-        self.geometry("900x460")
-        self.minsize(760, 440)
+        self.geometry("900x500")
+        self.minsize(760, 480)
+
+        self.header = tk.Frame(self, bg=self.palette["header"], height=38)
+        self.header.pack(fill="x")
+        self.header.pack_propagate(False)
+        self.title_label = ttk.Label(self.header, text=APP,
+                                     style="Title.TLabel")
+        self.title_label.pack(side="left", padx=(14, 0), pady=8)
+        self.theme_button = ttk.Button(
+            self.header, text="Light" if self.dark else "Dark",
+            command=self._toggle_theme,
+            image=icons.get_icon("sun" if self.dark else "moon", self.dark),
+            compound="left")
+        self.theme_button.pack(side="right", padx=(0, 12), pady=6)
+
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True)
-        self.launcher = LauncherTab(self.notebook)
-        self.compiler = CompilerTab(self.notebook, on_built=self._on_built)
+        self.launcher = LauncherTab(self.notebook, dark=self.dark)
+        self.compiler = CompilerTab(self.notebook, on_built=self._on_built,
+                                    dark=self.dark)
         self.notebook.add(self.launcher, text="Launcher")
         self.notebook.add(self.compiler, text="Compiler")
         self.notebook.select(self.launcher)
+        self._tab_icons = []
+        self._update_tab_icons()
         self.protocol("WM_DELETE_WINDOW", self._cerrar)
+
+    def _update_tab_icons(self):
+        self._tab_icons = [
+            icons.get_icon("launcher", self.dark),
+            icons.get_icon("compiler", self.dark),
+        ]
+        for index, image in enumerate(self._tab_icons):
+            self.notebook.tab(index, image=image, compound="left")
+
+    def _toggle_theme(self):
+        self.dark = not self.dark
+        save_theme(self.dark)
+        self.palette = theme.apply(self, self.dark)
+        self.configure(bg=self.palette["bg"])
+        self.header.configure(bg=self.palette["header"])
+        self.theme_button.configure(
+            text="Light" if self.dark else "Dark",
+            image=icons.get_icon("sun" if self.dark else "moon", self.dark))
+        self.launcher.apply_theme(self.dark)
+        self.compiler.apply_theme(self.dark)
+        self._update_tab_icons()
 
     def _on_built(self, path):
         self.launcher.add_build(path)

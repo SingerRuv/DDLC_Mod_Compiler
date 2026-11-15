@@ -5,26 +5,28 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from . import icons, theme
 from .config import APP, MODS_ROOT, ensure_mods_root, resource_path
 from .library import (entry_from_path, load_state, save_state, scan_roots)
 from .platforms import (find_launcher, open_launcher, open_path,
                         platform_name)
-
 CARD_COLUMNS = 3
 CARD_WIDTH = 230
-CARD_HEIGHT = 200
+CARD_HEIGHT = 220
 CARD_LOGO = 42
 
 
 class LauncherTab(ttk.Frame):
-    def __init__(self, master):
+    def __init__(self, master, dark=False):
         super().__init__(master, padding=12)
+        self.dark = dark
         self.platform = platform_name()
         self.status = tk.StringVar(value="No mods loaded.")
         self._entries = []
         self._external_roots = []
         self._extra_paths = []
         self._images = []
+        self._icon_buttons = []
         self._scan_cancel = threading.Event()
         self._scan_queue = queue.Queue()
         self._scan_thread = None
@@ -34,30 +36,38 @@ class LauncherTab(ttk.Frame):
         self.status.set("Scanning %s mods... Please wait." % self.platform)
         self.after(100, self.start_scan)
 
+    def _tool_button(self, parent, text, icon_name, command):
+        button = ttk.Button(
+            parent, text=text, image=icons.get_icon(icon_name, self.dark),
+            compound="left", command=command)
+        self._icon_buttons.append((button, icon_name))
+        return button
+
     def _build_ui(self):
         top = ttk.Frame(self)
         top.pack(fill="x", pady=(0, 4))
-        ttk.Button(top, text="Open mods folder",
-                   command=self._open_mods_root).pack(side="left")
-        self.scan_btn = ttk.Button(top, text="Rescan",
-                                   command=self.start_scan)
+        self._tool_button(top, "Open mods folder", "folder",
+                          self._open_mods_root).pack(side="left")
+        self.scan_btn = self._tool_button(
+            top, "Rescan", "refresh", self.start_scan)
         self.scan_btn.pack(side="left", padx=(8, 0))
-        add_btn = ttk.Button(top, text="Add folder...",
-                             command=self._add_folder)
+        add_btn = self._tool_button(top, "Add folder...", "add-folder",
+                                    self._add_folder)
         add_btn.pack(side="left", padx=(8, 0))
-        import_btn = ttk.Button(top, text="Import mod...",
-                                command=self._import_mod)
+        import_btn = self._tool_button(top, "Import mod...", "import",
+                                       self._import_mod)
         import_btn.pack(side="left", padx=(8, 0))
         self._action_buttons = [add_btn, import_btn]
-        ttk.Label(self, text="Mods folder: %s" % MODS_ROOT).pack(
-            anchor="w", pady=(0, 4))
-        ttk.Label(self, text="Platform: %s" % self.platform).pack(
-            anchor="w", pady=(0, 4))
+        ttk.Label(self, text="Mods folder: %s" % MODS_ROOT,
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 4))
+        ttk.Label(self, text="Platform: %s" % self.platform,
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 4))
         ttk.Label(self, textvariable=self.status).pack(anchor="w", pady=(0, 8))
 
         body = ttk.Frame(self)
         body.pack(fill="both", expand=True)
-        self.canvas = tk.Canvas(body, highlightthickness=0)
+        self.canvas = tk.Canvas(body, highlightthickness=0,
+                                bg=theme.palette(self.dark)["bg"])
         scroll = ttk.Scrollbar(body, orient="vertical",
                                command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=scroll.set)
@@ -74,6 +84,13 @@ class LauncherTab(ttk.Frame):
             "<Configure>",
             lambda e: self.canvas.itemconfigure(self._window, width=e.width))
 
+    def apply_theme(self, dark):
+        self.dark = dark
+        self.canvas.configure(bg=theme.palette(dark)["bg"])
+        for button, icon_name in self._icon_buttons:
+            button.configure(image=icons.get_icon(icon_name, dark))
+        self._render()
+
     def is_scanning(self):
         return bool(self._scan_thread and self._scan_thread.is_alive())
 
@@ -82,7 +99,9 @@ class LauncherTab(ttk.Frame):
             return
         self._scan_cancel.clear()
         self.status.set("Scanning %s mods... Please wait." % self.platform)
-        self.scan_btn.configure(text="Cancel scan", command=self.cancel_scan)
+        self.scan_btn.configure(
+            text="Cancel scan", command=self.cancel_scan,
+            image=icons.get_icon("cancel", self.dark))
         for button in self._action_buttons:
             button.configure(state="disabled")
         roots = [str(MODS_ROOT)] + list(self._external_roots)
@@ -139,7 +158,9 @@ class LauncherTab(ttk.Frame):
         self._finish_scan()
 
     def _finish_scan(self):
-        self.scan_btn.configure(text="Rescan", command=self.start_scan)
+        self.scan_btn.configure(
+            text="Rescan", command=self.start_scan,
+            image=icons.get_icon("refresh", self.dark))
         for button in self._action_buttons:
             button.configure(state="normal")
 
@@ -212,29 +233,34 @@ class LauncherTab(ttk.Frame):
             self._card(entry, i // CARD_COLUMNS, i % CARD_COLUMNS)
 
     def _card(self, entry, row, col):
-        card = ttk.Frame(self.cards, padding=6, relief="groove",
+        card = ttk.Frame(self.cards, padding=6, style="Card.TFrame",
                          width=CARD_WIDTH, height=CARD_HEIGHT)
         card.grid(row=row, column=col, sticky="nw", padx=4, pady=4)
         card.grid_propagate(False)
         card.columnconfigure(0, weight=1)
 
         image = self._logo(entry)
-        logo = ttk.Label(card, image=image) if image else ttk.Label(
-            card, text="DDLC")
+        logo = ttk.Label(card, image=image, style="Card.TLabel") if image \
+            else ttk.Label(card, text="DDLC", style="Card.TLabel")
         logo.grid(row=0, column=0, pady=(0, 4), sticky="n")
 
         ttk.Label(card, text=entry["name"], font=("Segoe UI", 10, "bold"),
-                  wraplength=200).grid(row=1, column=0, sticky="w")
-        ttk.Label(card, text=entry["kind"], foreground="#555").grid(
+                  style="Card.TLabel", wraplength=200).grid(
+            row=1, column=0, sticky="w")
+        ttk.Label(card, text=entry["kind"], style="CardMuted.TLabel").grid(
             row=2, column=0, sticky="w")
 
-        buttons = ttk.Frame(card)
+        buttons = ttk.Frame(card, style="Card.TFrame")
         buttons.grid(row=3, column=0, sticky="ew", pady=(6, 0))
         buttons.columnconfigure(0, weight=1)
         ttk.Button(buttons, text="Launch",
+                   image=icons.get_icon("play", self.dark),
+                   compound="left",
                    command=lambda e=entry: self._launch(e)).grid(
             row=0, column=0, sticky="ew")
         ttk.Button(buttons, text="Open folder",
+                   image=icons.get_icon("open-folder", self.dark),
+                   compound="left",
                    command=lambda e=entry: self._open_folder(e)).grid(
             row=1, column=0, sticky="ew", pady=(4, 0))
 
