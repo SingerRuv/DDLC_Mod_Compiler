@@ -18,7 +18,8 @@ class LauncherTab(ttk.Frame):
         self._images = []
         self._build_ui()
         self._external_roots, self._extra_paths = load_state()
-        self._scan_all()
+        self.status.set("Scanning mods... Please wait.")
+        self.after(100, self._scan_all)
 
     def _build_ui(self):
         top = ttk.Frame(self)
@@ -55,6 +56,8 @@ class LauncherTab(ttk.Frame):
             lambda e: self.canvas.itemconfigure(self._window, width=e.width))
 
     def _scan_all(self):
+        self.status.set("Scanning mods... Please wait.")
+        self.update_idletasks()
         ensure_mods_root()
         roots = [str(MODS_ROOT)] + self._external_roots
         entries = scan_roots(roots)
