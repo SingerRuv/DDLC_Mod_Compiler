@@ -1,5 +1,6 @@
 """DDLC mod detection and validation."""
 import os
+import re
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -8,8 +9,26 @@ from .errors import BuildError
 from .files import _rpa_ok
 
 
+def _version_from_text(text):
+    match = re.search(r"version_tuple\s*=\s*\(\s*(\d+)", text)
+    if match:
+        return match.group(1)
+    match = re.search(r"version\s*=\s*[\"']Ren'Py\s+(\d+)", text)
+    return match.group(1) if match else ""
+
+
 def _version_renpy(root):
-    lib = Path(root) / "lib"
+    root = Path(root)
+    init_file = root / "renpy" / "__init__.py"
+    try:
+        version = _version_from_text(
+            init_file.read_text(encoding="utf-8", errors="ignore"))
+    except OSError:
+        version = ""
+    if version:
+        return version
+
+    lib = root / "lib"
     try:
         nombres = [p.name for p in lib.iterdir() if p.is_dir()]
     except OSError:
@@ -18,7 +37,9 @@ def _version_renpy(root):
         return "8"
     if any(n.startswith("py2-") for n in nombres):
         return "7"
-    return "?"
+    if any(n.startswith(("python2", "pythonlib2")) for n in nombres):
+        return "6"
+    return ""
 
 
 def _runtime_ok(root):
@@ -71,6 +92,19 @@ def _buscar_raiz_mod(path):
     return None, None
 
 
+def _zip_version(path):
+    try:
+        with zipfile.ZipFile(path, "r") as z:
+            for info in z.infolist():
+                name = info.filename.replace("\\", "/")
+                if name.endswith("renpy/__init__.py"):
+                    text = z.read(info).decode("utf-8", errors="ignore")
+                    return _version_from_text(text)
+    except (OSError, zipfile.BadZipFile):
+        pass
+    return ""
+
+
 def _tipo_zip(path):
     """Detect the type from ZIP entry names without extracting."""
     with zipfile.ZipFile(path, "r") as z:
@@ -78,11 +112,17 @@ def _tipo_zip(path):
                   for i in z.infolist()]
     tiene = lambda nombre: any(nombre in p[:-1] for p in partes)
     if tiene("renpy") and tiene("lib") and tiene("game"):
+        version = _zip_version(path)
+        if version:
+            return "runtime", version
         if any(n.startswith("py3-") for p in partes for n in p):
             return "runtime", "8"
         if any(n.startswith("py2-") for p in partes for n in p):
             return "runtime", "7"
-        return "runtime", "?"
+        if any(n.startswith(("python2", "pythonlib2"))
+               for p in partes for n in p):
+            return "runtime", "6"
+        return "runtime", ""
     if any(p[-2:] == ("game", "scripts.rpa") for p in partes) and \
        any(p[-2:] == ("game", "mod_assets.rpa") for p in partes):
         return "overlay", ""
@@ -110,7 +150,8 @@ def mod_kind(root):
     """Return a short human-readable kind for a runnable mod."""
     r = Path(root)
     if _runtime_ok(r):
-        return "Ren'Py %s" % _version_renpy(r)
+        version = _version_renpy(r)
+        return "Ren'Py %s" % version if version else "Ren'Py runtime"
     if (r / "game" / "scripts.rpa").is_file():
         return "DDLC build"
     return "Runnable mod"

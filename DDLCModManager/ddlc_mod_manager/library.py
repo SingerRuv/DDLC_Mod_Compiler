@@ -1,8 +1,10 @@
 """Mod discovery and Launcher persistence."""
+import hashlib
 import json
 import unicodedata
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
+from . import rpa
 from .config import DATA_DIR, MODS_ROOT
 from .mods import mod_kind
 from .platforms import find_launcher
@@ -13,13 +15,79 @@ SKIP_DIRS = {".git", "__pycache__", "game", "lib", "renpy", "saves",
              "cache", "dist", "build", ".venv"}
 
 
+LOGO_NAMES = ("icon.png", "logo.png", "game/icon.png", "game/logo.png",
+              "game/gui/icon.png", "game/gui/window_icon.png",
+              "gui/icon.png", "gui/window_icon.png")
+
+
+def _logo_score(name):
+    base = PurePosixPath(name).name.lower()
+    if not base.endswith((".png", ".gif")):
+        return -1
+    if any(bad in base for bad in ("template", "splash", "titlecard",
+                                    "background", "phone_", "demosplash")):
+        return -1
+    if base in ("icon.png", "icon.gif"):
+        return 100
+    if base in ("logo.png", "logo.gif"):
+        return 95
+    if "logo_fg" in base:
+        return 90
+    if "window_icon" in base:
+        return 85
+    if "logo" in base:
+        return 70
+    if base.startswith("icon"):
+        return 60
+    return -1
+
+
+def _rpa_logo(root):
+    game = Path(root) / "game"
+    try:
+        archives = sorted(
+            (p for p in game.glob("*.rpa") if p.is_file()),
+            key=lambda p: (0 if p.name == "mod_assets.rpa" else
+                           1 if p.name == "images.rpa" else 2, p.name))
+    except OSError:
+        return ""
+    best = None
+    for archive in archives:
+        try:
+            for name, offset, length in rpa.list_images(archive):
+                score = _logo_score(name)
+                if score < 0:
+                    continue
+                key = (score, -name.count("/"), name.casefold())
+                if best is None or key > best[0]:
+                    best = (key, archive, name, offset, length)
+        except OSError:
+            continue
+    if best is None:
+        return ""
+    _key, archive, name, offset, length = best
+    suffix = PurePosixPath(name).suffix.lower()
+    try:
+        stamp = archive.stat()
+        digest = hashlib.sha1(
+            ("%s|%s|%s|%s" % (archive, stamp.st_mtime, stamp.st_size,
+                              name)).encode("utf-8")).hexdigest()
+    except OSError:
+        return ""
+    cache = DATA_DIR / "logo-cache" / (digest + suffix)
+    if cache.is_file():
+        return str(cache)
+    extracted = rpa.extract(archive, offset, length, cache)
+    return str(extracted) if extracted else ""
+
+
 def _logo_for(root):
-    for rel in ("icon.png", "logo.png", "game/icon.png",
-                "game/logo.png", "game/gui/icon.png"):
+    root = Path(root)
+    for rel in LOGO_NAMES:
         p = root / rel
         if p.is_file():
             return str(p)
-    return ""
+    return _rpa_logo(root)
 
 
 def entry_from_path(path):
@@ -109,7 +177,8 @@ def filter_entries(entries, query="", runtime="All"):
     for entry in entries:
         kind = entry.get("kind", "")
         if runtime == "Other":
-            if kind in ("Ren'Py 7", "Ren'Py 8", "DDLC build"):
+            if kind in ("Ren'Py 6", "Ren'Py 7", "Ren'Py 8",
+                        "DDLC build"):
                 continue
         elif runtime != "All" and kind != runtime:
             continue

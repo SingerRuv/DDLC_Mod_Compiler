@@ -5,16 +5,22 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+try:
+    from PIL import Image, ImageTk
+except ImportError:
+    Image = ImageTk = None
+
 from . import icons, theme
-from .config import APP, MODS_ROOT, ensure_mods_root, resource_path
+from .config import APP, MODS_ROOT, ensure_mods_root
 from .library import (entry_from_path, filter_entries, load_state, save_state,
                       scan_roots, sort_entries)
 from .platforms import (find_launcher, open_launcher, open_path,
                         platform_name)
+
 CARD_COLUMNS = 3
 CARD_WIDTH = 230
-CARD_HEIGHT = 260
-CARD_LOGO = 42
+CARD_LOGO = 150
+CARD_HEIGHT = CARD_LOGO + 185
 
 
 class LauncherTab(ttk.Frame):
@@ -78,8 +84,8 @@ class LauncherTab(ttk.Frame):
         ttk.Combobox(
             filters, textvariable=self.runtime_filter, state="readonly",
             width=12,
-            values=("All", "Ren'Py 7", "Ren'Py 8", "DDLC build",
-                    "Other")).pack(side="left", padx=(4, 12))
+            values=("All", "Ren'Py 6", "Ren'Py 7", "Ren'Py 8",
+                    "DDLC build", "Other")).pack(side="left", padx=(4, 12))
         ttk.Label(filters, text="Sort:").pack(side="left")
         ttk.Combobox(
             filters, textvariable=self.sort_mode, state="readonly", width=12,
@@ -287,8 +293,14 @@ class LauncherTab(ttk.Frame):
         card.columnconfigure(0, weight=1)
 
         image = self._logo(entry)
-        logo = ttk.Label(card, image=image, style="Card.TLabel") if image \
-            else ttk.Label(card, text="DDLC", style="Card.TLabel")
+        if image:
+            logo = ttk.Label(card, image=image, style="Card.TLabel")
+        else:
+            initial = (entry["name"][:1] or "?").upper()
+            logo = tk.Label(
+                card, text=initial, bg=theme.palette(self.dark)["accent"],
+                fg="#ffffff", font=("Segoe UI", 16, "bold"), width=3,
+                height=2, relief="flat", bd=0)
         logo.grid(row=0, column=0, pady=(0, 4), sticky="n")
 
         ttk.Label(card, text=entry["name"], font=("Segoe UI", 10, "bold"),
@@ -315,7 +327,7 @@ class LauncherTab(ttk.Frame):
             row=2, column=0, sticky="ew", pady=(4, 0))
 
     def _logo(self, entry):
-        candidates = [entry.get("logo"), resource_path("icon.png")]
+        candidates = [entry.get("logo")]
         for candidate in candidates:
             if not candidate:
                 continue
@@ -323,10 +335,17 @@ class LauncherTab(ttk.Frame):
             if not path.is_file():
                 continue
             try:
-                image = tk.PhotoImage(file=str(path))
-                factor = max(1, max(image.width(), image.height()) // CARD_LOGO)
-                if factor > 1:
-                    image = image.subsample(factor)
+                if ImageTk is not None:
+                    image_data = Image.open(path).convert("RGBA")
+                    image_data.thumbnail((CARD_LOGO, CARD_LOGO),
+                                         Image.LANCZOS)
+                    image = ImageTk.PhotoImage(image_data, master=self)
+                else:
+                    image = tk.PhotoImage(file=str(path))
+                    factor = max(1, max(image.width(), image.height()) //
+                                 CARD_LOGO)
+                    if factor > 1:
+                        image = image.subsample(factor)
                 self._images.append(image)
                 return image
             except Exception:

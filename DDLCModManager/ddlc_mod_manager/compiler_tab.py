@@ -75,44 +75,53 @@ class CompilerTab(ttk.Frame):
         frm.pack(fill="both", expand=True)
 
         ttk.Label(frm, text="1. DDLC base").grid(row=0, column=0, sticky="w")
-        ttk.Entry(frm, textvariable=self.base).grid(row=1, column=0, columnspan=3,
-                                                     sticky="ew", pady=(2, 8))
+        ttk.Entry(frm, textvariable=self.base, width=64, state="readonly").grid(
+            row=1, column=0, sticky="w", pady=(2, 8))
         self._button(frm, "Choose folder...", "folder",
                      self._elegir_base).grid(
-            row=1, column=3, padx=(8, 0))
+            row=1, column=1, padx=(8, 0), sticky="w")
 
-        ttk.Label(frm, text="2. Mod (folder or ZIP)").grid(row=2, column=0,
-                                                           sticky="w")
-        self.modo_label = ttk.Label(frm, textvariable=self.modo, anchor="e")
-        self.modo_label.grid(row=2, column=1, columnspan=3, sticky="e")
-        ttk.Entry(frm, textvariable=self.overlay).grid(row=3, column=0,
-                                                       columnspan=3, sticky="ew",
-                                                       pady=(2, 8))
+        mod_header = ttk.Frame(frm)
+        mod_header.grid(row=2, column=0, columnspan=3, sticky="w")
+        ttk.Label(mod_header, text="2. Mod (folder or ZIP)").pack(
+            side="left")
+        ttk.Entry(frm, textvariable=self.overlay, width=64, state="readonly").grid(
+            row=3, column=0, sticky="w", pady=(2, 8))
         overlay_btns = ttk.Frame(frm)
-        overlay_btns.grid(row=3, column=3, padx=(8, 0))
-        self._button(overlay_btns, "Folder...", "folder",
-                     self._elegir_overlay_dir).pack(side="left")
-        self._button(overlay_btns, "ZIP...", "archive",
-                     self._elegir_overlay_zip).pack(side="left", padx=(4, 0))
+        overlay_btns.grid(row=3, column=1, padx=(8, 0), sticky="w")
+        self.mod_button = ttk.Menubutton(
+            overlay_btns, text="Choose...",
+            image=icons.get_icon("folder", self.dark), compound="left")
+        self._icon_buttons.append((self.mod_button, "folder"))
+        mod_menu = tk.Menu(self.mod_button, tearoff=0)
+        mod_menu.add_command(label="Folder...",
+                             command=self._elegir_overlay_dir)
+        mod_menu.add_command(label="ZIP...", command=self._elegir_overlay_zip)
+        self.mod_button.configure(menu=mod_menu)
+        self.mod_button.pack(side="left")
 
         ttk.Label(frm, text="3. Output folder").grid(row=4, column=0,
                                                              sticky="w")
-        ttk.Entry(frm, textvariable=self.output, state="readonly").grid(
-            row=5, column=0, columnspan=3, sticky="ew", pady=(2, 8))
+        ttk.Entry(frm, textvariable=self.output, state="readonly",
+                  width=64).grid(row=5, column=0, sticky="w", pady=(2, 8))
         self._button(frm, "Open folder", "output-folder",
-                     self._abrir_salida).grid(row=5, column=3, padx=(8, 0))
+                     self._abrir_salida).grid(
+            row=5, column=1, padx=(8, 0), sticky="w")
 
         checks = ttk.Frame(frm)
-        checks.grid(row=6, column=0, columnspan=4, sticky="w", pady=(2, 8))
+        checks.grid(row=6, column=0, columnspan=3, sticky="w", pady=(2, 8))
         ttk.Checkbutton(checks, text="Include credits and README",
                         variable=self.docs).pack(side="left", padx=(0, 18))
         ttk.Checkbutton(checks, text="Create ZIP", variable=self.zip).pack(
             side="left", padx=(0, 18))
         ttk.Checkbutton(checks, text="Open game when finished",
                         variable=self.open_game).pack(side="left")
+        self.modo_label = ttk.Label(checks, textvariable=self.modo,
+                                    anchor="w")
+        self.modo_label.pack(side="left", padx=(18, 0))
 
         bar = ttk.Frame(frm)
-        bar.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(4, 8))
+        bar.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(4, 8))
         self.boton = self._button(bar, "Build", "build", self._iniciar)
         self.boton.pack(side="left")
         self._button(bar, "Cancel", "cancel", self._cancelar).pack(
@@ -127,9 +136,9 @@ class CompilerTab(ttk.Frame):
             side="left", padx=(4, 0))
 
         self.log = ScrolledText(frm, height=8, wrap="word", state="disabled")
-        self.log.grid(row=8, column=0, columnspan=4, sticky="nsew")
-        frm.columnconfigure(0, weight=1)
-        frm.columnconfigure(1, weight=1)
+        self.log.grid(row=8, column=0, columnspan=3, sticky="nsew")
+        frm.columnconfigure(0, weight=0)
+        frm.columnconfigure(1, weight=0)
         frm.columnconfigure(2, weight=1)
         frm.rowconfigure(8, weight=1)
 
@@ -165,7 +174,10 @@ class CompilerTab(ttk.Frame):
             self._log("Unrecognized mod: %s" % e)
             return
         if tipo == "runtime":
-            self.modo.set("Mode: Runtime Ren'Py %s" % version)
+            if version:
+                self.modo.set("Mode: Runtime Ren'Py %s" % version)
+            else:
+                self.modo.set("Mode: Ren'Py runtime")
             self.modo_label.configure(foreground="#0b6b3a")
         elif tipo == "overlay":
             self.modo.set("Mode: DDLC overlay")
@@ -288,8 +300,10 @@ class CompilerTab(ttk.Frame):
         output = str(output_path)
         if output != self.output.get():
             self.output.set(output)
-        self._log("Mode: %s%s" % (tipo, " Ren'Py " + version
-                                  if tipo == "runtime" else ""))
+        suffix = ""
+        if tipo == "runtime":
+            suffix = (" Ren'Py " + version) if version else " Ren'Py runtime"
+        self._log("Mode: %s%s" % (tipo, suffix))
         self._cancel.clear()
         self.boton.config(state="disabled")
         self.progress.configure(value=0)
