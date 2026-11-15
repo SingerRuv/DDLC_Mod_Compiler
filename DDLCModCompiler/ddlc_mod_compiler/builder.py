@@ -42,7 +42,7 @@ def _agregar_assets(base, staging, log, cancelar, progress):
         log("The mod already has all base assets.")
 
 
-def _validar_salida(base, mod, output, needed):
+def _validar_salida(base, mod, output, needed, overwrite=False):
     output = Path(output)
     out_abs = Path(_norm(output))
     for origen in (base, mod):
@@ -52,7 +52,7 @@ def _validar_salida(base, mod, output, needed):
                              "a folder inside them.")
     if output.exists() and not output.is_dir():
         raise BuildError("Output exists and is not a folder.")
-    if _no_vacio(output):
+    if _no_vacio(output) and not overwrite:
         raise BuildError("Output folder already exists and is not empty.")
     if output.parent == output:
         raise BuildError("Choose a valid output folder.")
@@ -66,16 +66,39 @@ def _validar_salida(base, mod, output, needed):
     return output
 
 
-def _crear_zip(output, log, status, progress, cancelar):
+def _instalar_salida(staging, output):
+    """Swap a completed build into place, restoring the old one on failure."""
+    backup = None
+    if output.exists():
+        backup = output.with_name(output.name + ".ddlc-backup")
+        n = 2
+        while backup.exists():
+            backup = output.with_name("%s.ddlc-backup-%d" % (output.name, n))
+            n += 1
+        output.rename(backup)
+    try:
+        staging.replace(output)
+    except Exception:
+        if backup and not output.exists():
+            backup.rename(output)
+        raise
+    if backup:
+        shutil.rmtree(backup, ignore_errors=True)
+
+
+def _crear_zip(output, log, status, progress, cancelar, overwrite=False):
     zip_final = output.with_name(output.name + ".zip")
-    if zip_final.exists():
+    if zip_final.exists() and not overwrite:
         raise BuildError("ZIP already exists: %s" % zip_final)
+    zip_tmp = zip_final.with_name(zip_final.name + ".tmp")
+    if zip_tmp.exists():
+        zip_tmp.unlink()
     log("Creating uncompressed ZIP...")
     status("Creating ZIP...")
     archivos_zip = sorted(p for p in output.rglob("*") if p.is_file())
     total_zip = len(archivos_zip)
     try:
-        with zipfile.ZipFile(zip_final, "w", compression=zipfile.ZIP_STORED,
+        with zipfile.ZipFile(zip_tmp, "w", compression=zipfile.ZIP_STORED,
                              allowZip64=True) as z:
             for i, p in enumerate(archivos_zip, 1):
                 if cancelar and cancelar.is_set():
@@ -84,17 +107,20 @@ def _crear_zip(output, log, status, progress, cancelar):
                     str(p.relative_to(output)).replace("\\", "/")
                 z.write(p, arc)
                 progress("Creating ZIP", i, max(total_zip, 1))
-        log("ZIP created: %s" % zip_final)
-    except Exception:
         if zip_final.exists():
             zip_final.unlink()
+        zip_tmp.replace(zip_final)
+        log("ZIP created: %s" % zip_final)
+    except Exception:
+        if zip_tmp.exists():
+            zip_tmp.unlink()
         raise
     return zip_final
 
 
 def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
                       abrir_juego=False, log=print, status=lambda _s: None,
-                      progress=lambda *a: None, cancelar=None):
+                      progress=lambda *a: None, cancelar=None, overwrite=False):
     base = validar_base(base, solo_assets=True)
     mod = validar_runtime(mod)
     output = Path(output)
@@ -102,9 +128,11 @@ def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
     assets_bytes = sum((base / rel).stat().st_size for rel in BASE_ASSETS)
     assets_bytes += _tam_arbol(base / BASE_PY)
     needed = mod_bytes + assets_bytes + MARGEN_DISCO
+    if overwrite and output.exists():
+        needed += _tam_arbol(output)
     if crear_zip:
         needed *= 2
-    output = _validar_salida(base, mod, output, needed)
+    output = _validar_salida(base, mod, output, needed, overwrite)
     log("Validation OK: Ren'Py %s runtime." % _version_renpy(mod))
 
     staging = Path(tempfile.mkdtemp(prefix=output.name + "-build-",
@@ -135,16 +163,16 @@ def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
             raise BuildError("Incomplete build: mod launcher not found.")
         log("Mod launcher: %s" % exe.name)
 
-        if output.exists():
+        if output.exists() and not overwrite:
             raise BuildError("Output appeared while building.")
-        staging.replace(output)
+        _instalar_salida(staging, output)
         log("Playable folder created: %s" % output)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
         raise
 
-    zip_final = _crear_zip(output, log, status, progress, cancelar) \
-        if crear_zip else None
+    zip_final = _crear_zip(output, log, status, progress, cancelar,
+                           overwrite=overwrite) if crear_zip else None
     status("Ready")
     progress("Ready", 1, 1)
 
@@ -164,7 +192,7 @@ def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
 
 def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
              abrir_juego=False, log=print, status=lambda _s: None,
-             progress=lambda *a: None, cancelar=None):
+             progress=lambda *a: None, cancelar=None, overwrite=False):
     """Return the final folder and, if requested, the ZIP."""
     status("Validating...")
     mod_original = Path(overlay)
@@ -196,7 +224,8 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
             return _compilar_runtime(
                 base, mod_root, output, incluir_docs=incluir_docs,
                 crear_zip=crear_zip, abrir_juego=abrir_juego, log=log,
-                status=status, progress=progress, cancelar=cancelar)
+                status=status, progress=progress, cancelar=cancelar,
+                overwrite=overwrite)
         base = validar_base(base)
         overlay = validar_overlay(mod_root)
 
@@ -205,9 +234,11 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
         overlay_bytes = sum((overlay / rel).stat().st_size
                             for rel in OVERLAY_RPAS)
         needed = _tam_arbol(base, _ignorar_base) + overlay_bytes + MARGEN_DISCO
+        if overwrite and output.exists():
+            needed += _tam_arbol(output)
         if crear_zip:
             needed *= 2
-        output = _validar_salida(base, overlay, output, needed)
+        output = _validar_salida(base, overlay, output, needed, overwrite)
 
         log("Validation OK.")
         status("Copying DDLC base...")
@@ -259,16 +290,17 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
                 if _sha256(staging / rel) != hash_base:
                     raise BuildError("A base asset was modified: %s." % rel)
 
-            if output.exists():
+            if output.exists() and not overwrite:
                 raise BuildError("Output appeared while building.")
-            staging.replace(output)
+            _instalar_salida(staging, output)
             log("Playable folder created: %s" % output)
         except Exception:
             shutil.rmtree(staging, ignore_errors=True)
             raise
 
         zip_final = _crear_zip(
-            output, log, status, progress, cancelar) if crear_zip else None
+            output, log, status, progress, cancelar,
+            overwrite=overwrite) if crear_zip else None
         status("Ready")
         progress("Ready", 1, 1)
 

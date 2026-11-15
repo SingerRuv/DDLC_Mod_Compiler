@@ -14,6 +14,12 @@ BASE_RPAS = ("game/scripts.rpa", "game/images.rpa", "game/audio.rpa",
 BASE_ASSETS = ("game/images.rpa", "game/audio.rpa", "game/fonts.rpa")
 BASE_PY = "game/python-packages"
 OVERLAY_RPAS = ("game/scripts.rpa", "game/mod_assets.rpa")
+MODS_ROOT = Path.home() / "DDLC Mods"
+
+
+def ensure_mods_root():
+    MODS_ROOT.mkdir(parents=True, exist_ok=True)
+    return MODS_ROOT
 
 
 def app_dir():

@@ -9,7 +9,7 @@ from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from .builder import compilar
-from .config import APP, LOG_PATH
+from .config import APP, LOG_PATH, MODS_ROOT, ensure_mods_root
 from .errors import BuildCancelada
 from .mods import detectar_mod
 from .platforms import open_path
@@ -71,11 +71,12 @@ class CompilerTab(ttk.Frame):
         ttk.Button(overlay_btns, text="ZIP...",
                    command=self._elegir_overlay_zip).pack(side="left", padx=(4, 0))
 
-        ttk.Label(frm, text="3. Output folder").grid(row=4, column=0, sticky="w")
-        ttk.Entry(frm, textvariable=self.output).grid(row=5, column=0,
-                                                      columnspan=3, sticky="ew",
-                                                      pady=(2, 8))
-        ttk.Button(frm, text="Choose...", command=self._elegir_salida).grid(
+        ttk.Label(frm, text="3. Output folder (fixed)").grid(row=4, column=0,
+                                                             sticky="w")
+        ttk.Entry(frm, textvariable=self.output, state="readonly").grid(
+            row=5, column=0, columnspan=3, sticky="ew", pady=(2, 8))
+        ttk.Button(frm, text="Open output folder",
+                   command=self._abrir_salida).grid(
             row=5, column=3, padx=(8, 0))
 
         checks = ttk.Frame(frm)
@@ -154,16 +155,45 @@ class CompilerTab(ttk.Frame):
             self.modo_label.configure(foreground="#b00020")
 
     def _sugerir_salida(self, p):
+        ensure_mods_root()
         path = Path(p)
         nombre = path.stem if path.is_file() else path.name
         if not nombre.lower().startswith("ddlc "):
             nombre = "DDLC " + nombre
-        self.output.set(str(path.parent / nombre))
+        self.output.set(str(MODS_ROOT / nombre))
 
-    def _elegir_salida(self):
-        p = filedialog.askdirectory(title="Output folder")
-        if p:
-            self.output.set(p)
+    def _abrir_salida(self):
+        ensure_mods_root()
+        open_path(str(MODS_ROOT))
+
+    def _resolver_salida(self, value):
+        path = Path(value)
+        if path.exists() and not path.is_dir():
+            messagebox.showerror(APP, "Output exists and is not a folder.")
+            return None, False
+        zip_path = path.with_name(path.name + ".zip")
+        zip_exists = bool(self.zip.get() and zip_path.exists())
+        if (not path.exists() or not any(path.iterdir())) and not zip_exists:
+            return path, False
+        answer = messagebox.askyesnocancel(
+            APP,
+            "The output destination already exists:\n%s\n\n"
+            "Yes: replace it\n"
+            "No: create a numbered copy\n"
+            "Cancel: stop" % path)
+        if answer is None:
+            return None, False
+        if answer:
+            return path, True
+        base = path
+        copy_number = 2
+        while True:
+            candidate = base.with_name("%s (%d)" % (base.name, copy_number))
+            if not candidate.exists() and not (
+                    self.zip.get() and
+                    candidate.with_name(candidate.name + ".zip").exists()):
+                return candidate, False
+            copy_number += 1
 
     def _agregar_log(self, msg):
         self.log.configure(state="normal")
@@ -234,6 +264,12 @@ class CompilerTab(ttk.Frame):
                      "This compiler does not use the SDK: first create a "
                      "distribution with the included runtime.")
             return
+        output_path, overwrite = self._resolver_salida(output)
+        if output_path is None:
+            return
+        output = str(output_path)
+        if output != self.output.get():
+            self.output.set(output)
         self._log("Mode: %s%s" % (tipo, " Ren'Py " + version
                                   if tipo == "runtime" else ""))
         self._cancel.clear()
@@ -246,17 +282,19 @@ class CompilerTab(ttk.Frame):
         self._worker = threading.Thread(
             target=self._worker_run,
             args=(base, overlay, output, self.docs.get(), self.zip.get(),
-                  self.open_game.get(), self._cancel),
+                  self.open_game.get(), overwrite, self._cancel),
             daemon=True)
         self._worker.start()
         self._spin_start()
 
-    def _worker_run(self, base, overlay, output, docs, crear_zip, abrir, cancelar):
+    def _worker_run(self, base, overlay, output, docs, crear_zip, abrir,
+                    overwrite, cancelar):
         try:
             carpeta, zpath = compilar(
                 base, overlay, output, incluir_docs=docs, crear_zip=crear_zip,
                 abrir_juego=abrir, log=self._log, status=self._status,
-                progress=self._progress, cancelar=cancelar)
+                progress=self._progress, cancelar=cancelar,
+                overwrite=overwrite)
             self._queue.put(("done", (True, carpeta, zpath)))
         except BuildCancelada:
             self._queue.put(("done", (False, None, "Build cancelled.")))

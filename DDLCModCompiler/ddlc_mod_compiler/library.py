@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 
+from .config import MODS_ROOT
 from .mods import _runtime_ok, _version_renpy
 from .platforms import find_launcher
 
@@ -70,22 +71,40 @@ def scan_mods(root):
     return sorted(found.values(), key=lambda e: e["name"].casefold())
 
 
+def scan_roots(roots):
+    found = {}
+    for root in roots:
+        for entry in scan_mods(root):
+            found[entry["path"]] = entry
+    return sorted(found.values(), key=lambda e: e["name"].casefold())
+
+
 def load_state():
     try:
         data = json.loads(STORE_PATH.read_text(encoding="utf-8"))
     except Exception:
-        return "", []
-    root = data.get("root", "")
+        return [], []
+    roots = data.get("external_roots", [])
     paths = data.get("mods", [])
+    if not isinstance(roots, list):
+        roots = []
     if not isinstance(paths, list):
         paths = []
-    return root, [str(p) for p in paths]
+    old_root = data.get("root")
+    if old_root:
+        try:
+            old = Path(old_root).resolve()
+            if old != MODS_ROOT.resolve() and str(old) not in roots:
+                roots.append(str(old))
+        except OSError:
+            pass
+    return [str(r) for r in roots], [str(p) for p in paths]
 
 
-def save_state(root, entries):
+def save_state(external_roots, entries):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     data = {
-        "root": str(root) if root else "",
+        "external_roots": list(external_roots),
         "mods": [e["path"] for e in entries],
     }
     STORE_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")

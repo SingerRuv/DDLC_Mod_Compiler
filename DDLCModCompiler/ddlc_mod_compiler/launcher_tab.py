@@ -3,34 +3,37 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from .config import APP, resource_path
-from .library import (entries_from_paths, entry_from_path, load_state,
-                      save_state, scan_mods)
+from .config import APP, MODS_ROOT, ensure_mods_root, resource_path
+from .library import (entry_from_path, load_state, save_state, scan_roots)
 from .platforms import open_launcher, open_path
 
 
 class LauncherTab(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, padding=12)
-        self.root_path = tk.StringVar()
         self.status = tk.StringVar(value="No mods loaded.")
         self._entries = []
+        self._external_roots = []
+        self._extra_paths = []
         self._images = []
         self._build_ui()
-        root, paths = load_state()
-        self.root_path.set(root)
-        self._entries = entries_from_paths(paths)
-        self._render()
+        self._external_roots, self._extra_paths = load_state()
+        self._scan_all()
 
     def _build_ui(self):
         top = ttk.Frame(self)
-        top.pack(fill="x", pady=(0, 8))
-        ttk.Button(top, text="Choose mods folder...",
-                   command=self._choose_folder).pack(side="left")
+        top.pack(fill="x", pady=(0, 4))
+        ttk.Button(top, text="Open mods folder",
+                   command=self._open_mods_root).pack(side="left")
         ttk.Button(top, text="Rescan", command=self.rescan).pack(
             side="left", padx=(8, 0))
-        ttk.Label(top, textvariable=self.status).pack(
-            side="left", padx=(12, 0))
+        ttk.Button(top, text="Add folder...",
+                   command=self._add_folder).pack(side="left", padx=(8, 0))
+        ttk.Button(top, text="Import mod...",
+                   command=self._import_mod).pack(side="left", padx=(8, 0))
+        ttk.Label(self, text="Mods folder: %s" % MODS_ROOT).pack(
+            anchor="w", pady=(0, 4))
+        ttk.Label(self, textvariable=self.status).pack(anchor="w", pady=(0, 8))
 
         body = ttk.Frame(self)
         body.pack(fill="both", expand=True)
@@ -51,37 +54,58 @@ class LauncherTab(ttk.Frame):
             "<Configure>",
             lambda e: self.canvas.itemconfigure(self._window, width=e.width))
 
-    def _choose_folder(self):
-        path = filedialog.askdirectory(title="Mods folder")
-        if path:
-            self.root_path.set(path)
-            self.rescan()
-
-    def rescan(self):
-        root = self.root_path.get().strip()
-        if not root:
-            messagebox.showwarning(APP, "Choose a mods folder first.")
-            return
-        self._entries = scan_mods(root)
-        save_state(root, self._entries)
+    def _scan_all(self):
+        ensure_mods_root()
+        roots = [str(MODS_ROOT)] + self._external_roots
+        entries = scan_roots(roots)
+        by_path = {entry["path"]: entry for entry in entries}
+        for path in self._extra_paths:
+            entry = entry_from_path(path)
+            if entry:
+                by_path[entry["path"]] = entry
+        self._entries = sorted(by_path.values(),
+                               key=lambda e: e["name"].casefold())
+        self._extra_paths = [entry["path"] for entry in self._entries]
+        save_state(self._external_roots, self._entries)
         self._render()
         self.status.set("%d runnable mods found." % len(self._entries))
+
+    def rescan(self):
+        self._scan_all()
+
+    def _open_mods_root(self):
+        ensure_mods_root()
+        open_path(str(MODS_ROOT))
+
+    def _add_folder(self):
+        path = filedialog.askdirectory(title="Additional mods folder")
+        if not path:
+            return
+        resolved = str(Path(path).resolve())
+        if resolved not in self._external_roots:
+            self._external_roots.append(resolved)
+        self._scan_all()
+
+    def _import_mod(self):
+        path = filedialog.askdirectory(title="Import mod folder")
+        if not path:
+            return
+        entry = entry_from_path(path)
+        if entry is None:
+            messagebox.showwarning(
+                APP, "That folder has no runnable mod launcher.")
+            return
+        if entry["path"] not in self._extra_paths:
+            self._extra_paths.append(entry["path"])
+        self._scan_all()
 
     def add_build(self, path):
         entry = entry_from_path(path)
         if not entry:
             return
-        replaced = False
-        for i, old in enumerate(self._entries):
-            if old["path"] == entry["path"]:
-                self._entries[i] = entry
-                replaced = True
-                break
-        if not replaced:
-            self._entries.append(entry)
-        self._entries.sort(key=lambda e: e["name"].casefold())
-        save_state(self.root_path.get().strip(), self._entries)
-        self._render()
+        if entry["path"] not in self._extra_paths:
+            self._extra_paths.append(entry["path"])
+        self._scan_all()
 
     def _render(self):
         for child in self.cards.winfo_children():
@@ -92,7 +116,8 @@ class LauncherTab(ttk.Frame):
         if not self._entries:
             ttk.Label(
                 self.cards,
-                text="No runnable mods loaded.\nChoose a mods folder to scan.",
+                text="No runnable mods loaded.\n"
+                     "Build a mod or import one to get started.",
                 justify="center").grid(row=0, column=0, columnspan=2,
                                        pady=40, sticky="n")
             return

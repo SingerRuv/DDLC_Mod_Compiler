@@ -51,10 +51,10 @@ Mod:
 
 ## Launcher
 
-The **Launcher** tab is shown first. Choose a mods folder and the tool scans it recursively for runnable mods (`.exe`, `.app`, or `.sh`).
+The **Launcher** tab is shown first. It scans the fixed mods folder `~/DDLC Mods` recursively for runnable mods (`.exe`, `.app`, or `.sh`). Additional folders can be added with **Add folder...**, and individual builds can be imported with **Import mod...**.
 
 - Each mod is shown as a card with its logo, name, runtime/type, **Launch**, and **Open folder**.
-- Mods and the selected folder are saved in `~/.ddlc_mod_compiler/launcher.json`.
+- The fixed folder, external folders, and imported mods are saved in `~/.ddlc_mod_compiler/launcher.json`.
 - New builds are added to the Launcher automatically.
 - Logos are loaded from `icon.png`, `logo.png`, `game/icon.png`, or `game/logo.png`; otherwise the DDLC Mod Compiler icon is used.
 
@@ -69,12 +69,16 @@ The **Launcher** tab is shown first. Choose a mods folder and the tool scans it 
    - `DDLC overlay`
    - `Runtime Ren'Py 7` / `Runtime Ren'Py 8`
    - `Source project (unsupported)`
-4. Select the output folder. The default is `DDLC <mod name>`.
-5. Choose the options:
+4. The output is fixed to `~/DDLC Mods/DDLC <mod name>` and cannot be edited. Use **Open output folder** to open the fixed folder.
+5. If the output already exists, choose:
+   - **Yes** to replace it (with a safe temporary backup);
+   - **No** to create `DDLC <mod name> (2)`, `(3)`, etc.;
+   - **Cancel** to stop.
+6. Choose the options:
    - include `Credits.txt`, `ThankYou.txt`, and `README.html` (overlay only);
    - create an uncompressed ZIP;
    - open the game when finished.
-6. Build.
+7. Build.
 
 ## What It Does
 
@@ -175,7 +179,7 @@ Native binaries must be built on their target operating system. Windows cannot c
 - MySilverLining's README mentions `python_packages`; the standard `python-packages` folder is used because that is what Ren'Py 7 loads.
 - The optional ZIP is stored without compression, which is much faster for large builds.
 - The log is written next to the executable on Windows and to `~/.ddlc_mod_compiler/DDLCModCompiler.log` on macOS/Linux.
-- If the output folder exists and is not empty, the tool stops instead of overwriting files.
+- If the output folder exists and is not empty, the tool asks whether to replace it or create a numbered copy.
 - macOS builds are unsigned and not notarized.
 - Linux builds target Ubuntu 22.04; compatibility depends on the destination glibc version.
 
