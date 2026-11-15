@@ -10,6 +10,11 @@ from .library import (entry_from_path, load_state, save_state, scan_roots)
 from .platforms import (find_launcher, open_launcher, open_path,
                         platform_name)
 
+CARD_COLUMNS = 3
+CARD_WIDTH = 230
+CARD_HEIGHT = 200
+CARD_LOGO = 42
+
 
 class LauncherTab(ttk.Frame):
     def __init__(self, master):
@@ -192,37 +197,39 @@ class LauncherTab(ttk.Frame):
         for child in self.cards.winfo_children():
             child.destroy()
         self._images.clear()
-        self.cards.columnconfigure(0, weight=1)
-        self.cards.columnconfigure(1, weight=1)
-        self.cards.columnconfigure(2, weight=1)
+        self.cards.columnconfigure(0, weight=0, minsize=CARD_WIDTH)
+        self.cards.columnconfigure(1, weight=0, minsize=CARD_WIDTH)
+        self.cards.columnconfigure(2, weight=0, minsize=CARD_WIDTH)
         if not self._entries:
             ttk.Label(
                 self.cards,
                 text="No runnable mods loaded.\n"
                      "Build a mod or import one to get started.",
-                justify="center").grid(row=0, column=0, columnspan=3,
+                justify="center").grid(row=0, column=0, columnspan=CARD_COLUMNS,
                                        pady=40, sticky="n")
             return
         for i, entry in enumerate(self._entries):
-            self._card(entry, i // 3, i % 3)
+            self._card(entry, i // CARD_COLUMNS, i % CARD_COLUMNS)
 
     def _card(self, entry, row, col):
-        card = ttk.Frame(self.cards, padding=8, relief="groove")
-        card.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
+        card = ttk.Frame(self.cards, padding=6, relief="groove",
+                         width=CARD_WIDTH, height=CARD_HEIGHT)
+        card.grid(row=row, column=col, sticky="nw", padx=4, pady=4)
+        card.grid_propagate(False)
         card.columnconfigure(0, weight=1)
 
         image = self._logo(entry)
         logo = ttk.Label(card, image=image) if image else ttk.Label(
             card, text="DDLC")
-        logo.grid(row=0, column=0, pady=(0, 6), sticky="n")
+        logo.grid(row=0, column=0, pady=(0, 4), sticky="n")
 
         ttk.Label(card, text=entry["name"], font=("Segoe UI", 10, "bold"),
-                  wraplength=220).grid(row=1, column=0, sticky="w")
+                  wraplength=200).grid(row=1, column=0, sticky="w")
         ttk.Label(card, text=entry["kind"], foreground="#555").grid(
             row=2, column=0, sticky="w")
 
         buttons = ttk.Frame(card)
-        buttons.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        buttons.grid(row=3, column=0, sticky="ew", pady=(6, 0))
         buttons.columnconfigure(0, weight=1)
         ttk.Button(buttons, text="Launch",
                    command=lambda e=entry: self._launch(e)).grid(
@@ -241,7 +248,7 @@ class LauncherTab(ttk.Frame):
                 continue
             try:
                 image = tk.PhotoImage(file=str(path))
-                factor = max(1, max(image.width(), image.height()) // 56)
+                factor = max(1, max(image.width(), image.height()) // CARD_LOGO)
                 if factor > 1:
                     image = image.subsample(factor)
                 self._images.append(image)
