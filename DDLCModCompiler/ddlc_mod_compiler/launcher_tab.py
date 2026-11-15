@@ -7,12 +7,14 @@ from tkinter import filedialog, messagebox, ttk
 
 from .config import APP, MODS_ROOT, ensure_mods_root, resource_path
 from .library import (entry_from_path, load_state, save_state, scan_roots)
-from .platforms import open_launcher, open_path
+from .platforms import (find_launcher, open_launcher, open_path,
+                        platform_name)
 
 
 class LauncherTab(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, padding=12)
+        self.platform = platform_name()
         self.status = tk.StringVar(value="No mods loaded.")
         self._entries = []
         self._external_roots = []
@@ -24,7 +26,7 @@ class LauncherTab(ttk.Frame):
         self._action_buttons = []
         self._build_ui()
         self._external_roots, self._extra_paths = load_state()
-        self.status.set("Scanning mods... Please wait.")
+        self.status.set("Scanning %s mods... Please wait." % self.platform)
         self.after(100, self.start_scan)
 
     def _build_ui(self):
@@ -43,6 +45,8 @@ class LauncherTab(ttk.Frame):
         import_btn.pack(side="left", padx=(8, 0))
         self._action_buttons = [add_btn, import_btn]
         ttk.Label(self, text="Mods folder: %s" % MODS_ROOT).pack(
+            anchor="w", pady=(0, 4))
+        ttk.Label(self, text="Platform: %s" % self.platform).pack(
             anchor="w", pady=(0, 4))
         ttk.Label(self, textvariable=self.status).pack(anchor="w", pady=(0, 8))
 
@@ -72,7 +76,7 @@ class LauncherTab(ttk.Frame):
         if self.is_scanning():
             return
         self._scan_cancel.clear()
-        self.status.set("Scanning mods... Please wait.")
+        self.status.set("Scanning %s mods... Please wait." % self.platform)
         self.scan_btn.configure(text="Cancel scan", command=self.cancel_scan)
         for button in self._action_buttons:
             button.configure(state="disabled")
@@ -120,7 +124,9 @@ class LauncherTab(ttk.Frame):
         self._scan_thread = None
         if kind == "done":
             self._apply_entries(payload)
-            self.status.set("%d runnable mods found." % len(self._entries))
+            count = len(self._entries)
+            self.status.set("%d runnable %s found." % (
+                count, "mod" if count == 1 else "mods"))
         elif kind == "cancelled":
             self.status.set("Scan cancelled.")
         else:
@@ -188,40 +194,43 @@ class LauncherTab(ttk.Frame):
         self._images.clear()
         self.cards.columnconfigure(0, weight=1)
         self.cards.columnconfigure(1, weight=1)
+        self.cards.columnconfigure(2, weight=1)
         if not self._entries:
             ttk.Label(
                 self.cards,
                 text="No runnable mods loaded.\n"
                      "Build a mod or import one to get started.",
-                justify="center").grid(row=0, column=0, columnspan=2,
+                justify="center").grid(row=0, column=0, columnspan=3,
                                        pady=40, sticky="n")
             return
         for i, entry in enumerate(self._entries):
-            self._card(entry, i // 2, i % 2)
+            self._card(entry, i // 3, i % 3)
 
     def _card(self, entry, row, col):
         card = ttk.Frame(self.cards, padding=8, relief="groove")
         card.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
-        card.columnconfigure(1, weight=1)
+        card.columnconfigure(0, weight=1)
 
         image = self._logo(entry)
         logo = ttk.Label(card, image=image) if image else ttk.Label(
             card, text="DDLC")
-        logo.grid(row=0, column=0, rowspan=2, padx=(0, 8), sticky="n")
+        logo.grid(row=0, column=0, pady=(0, 6), sticky="n")
 
         ttk.Label(card, text=entry["name"], font=("Segoe UI", 10, "bold"),
-                  wraplength=210).grid(row=0, column=1, sticky="w")
+                  wraplength=220).grid(row=1, column=0, sticky="w")
         ttk.Label(card, text=entry["kind"], foreground="#555").grid(
-            row=1, column=1, sticky="w")
+            row=2, column=0, sticky="w")
 
         buttons = ttk.Frame(card)
-        buttons.grid(row=0, column=2, rowspan=2, sticky="e", padx=(8, 0))
+        buttons.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        buttons.columnconfigure(0, weight=1)
+        buttons.columnconfigure(1, weight=1)
         ttk.Button(buttons, text="Launch",
-                   command=lambda e=entry: self._launch(e)).pack(
-            side="top", fill="x")
+                   command=lambda e=entry: self._launch(e)).grid(
+            row=0, column=0, sticky="ew")
         ttk.Button(buttons, text="Open folder",
-                   command=lambda e=entry: self._open_folder(e)).pack(
-            side="top", fill="x", pady=(4, 0))
+                   command=lambda e=entry: self._open_folder(e)).grid(
+            row=0, column=1, sticky="ew", padx=(6, 0))
 
     def _logo(self, entry):
         candidates = [entry.get("logo"), resource_path("icon.png")]
@@ -244,7 +253,14 @@ class LauncherTab(ttk.Frame):
 
     def _launch(self, entry):
         try:
-            open_launcher(Path(entry["launcher"]), cwd=Path(entry["path"]))
+            root = Path(entry["path"])
+            launcher = find_launcher(root)
+            if launcher is None:
+                messagebox.showerror(
+                    APP, "No %s launcher found for this mod." % self.platform)
+                return
+            entry["launcher"] = str(launcher)
+            open_launcher(launcher, cwd=root)
         except Exception as exc:
             messagebox.showerror(APP, "Could not launch the mod:\n%s" % exc)
 

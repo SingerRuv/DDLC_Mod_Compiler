@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 from ddlc_mod_compiler import builder, library  # noqa: E402
 from ddlc_mod_compiler.errors import BuildError  # noqa: E402
 from ddlc_mod_compiler.files import _extraer_zip  # noqa: E402
+from ddlc_mod_compiler.platforms import platform_name  # noqa: E402
 
 
 def put(base, rel, data=b"x"):
@@ -21,6 +22,9 @@ def put(base, rel, data=b"x"):
 
 
 class ZipSecurityTests(unittest.TestCase):
+    def test_platform_name(self):
+        self.assertIn(platform_name(), ("Windows", "macOS", "Linux"))
+
     def test_blocks_parent_traversal(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "bad.zip"

@@ -53,7 +53,8 @@ Mod:
 
 The **Launcher** tab is shown first. It scans the fixed mods folder `~/DDLC Mods` recursively for runnable mods (`.exe`, `.app`, or `.sh`). Additional folders can be added with **Add folder...**, and individual builds can be imported with **Import mod...**.
 
-- Each mod is shown as a card with its logo, name, runtime/type, **Launch**, and **Open folder**.
+- Each mod is shown as a vertical card in three columns, with its logo, name, runtime/type, **Launch**, and **Open folder**.
+- The current platform is shown at the top (`Windows`, `macOS`, or `Linux`), and the launcher is re-checked when **Launch** is pressed.
 - The fixed folder, external folders, and imported mods are saved in `~/.ddlc_mod_compiler/launcher.json`.
 - New builds are added to the Launcher automatically.
 - Logos are loaded from `icon.png`, `logo.png`, `game/icon.png`, or `game/logo.png`; otherwise the DDLC Mod Compiler icon is used.

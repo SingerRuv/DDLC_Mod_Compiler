@@ -5,6 +5,15 @@ import sys
 from pathlib import Path
 
 
+def platform_name():
+    """Return the current platform name shown in the Launcher."""
+    if sys.platform == "win32":
+        return "Windows"
+    if sys.platform == "darwin":
+        return "macOS"
+    return "Linux"
+
+
 def find_launcher(root):
     """Return the main executable/app/script for a game or runtime."""
     r = Path(root)
