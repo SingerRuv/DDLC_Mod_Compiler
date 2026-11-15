@@ -8,6 +8,7 @@ from tkinter import messagebox, ttk
 from . import devtools, icons, theme
 from .compiler_tab import CompilerTab
 from .config import APP, load_theme, migrate_legacy_data, resource_path, save_theme
+from .guide_tab import GuideTab
 from .launcher_tab import LauncherTab
 
 
@@ -61,28 +62,75 @@ class App(tk.Tk):
             font=("Segoe UI", 9), padx=10, pady=4, cursor="hand2")
         self.theme_button.pack(side="right", padx=(0, 12), pady=4)
 
-        self.notebook = ttk.Notebook(self)
+        self.tabbar = tk.Frame(self, bg=self.palette["bg"])
+        self.tabbar.pack(fill="x")
+        self.tab_border = tk.Frame(self, height=1,
+                                   bg=self.palette["border"])
+        self.tab_border.pack(fill="x")
+
+        self.notebook = ttk.Notebook(self, style="Hidden.TNotebook")
         self.notebook.pack(fill="both", expand=True)
         self.launcher = LauncherTab(self.notebook, dark=self.dark)
         self.compiler = CompilerTab(self.notebook, on_built=self._on_built,
                                     dark=self.dark)
-        self.notebook.add(self.launcher, text="Launcher")
+        self.guide = GuideTab(self.notebook, compiler=self.compiler,
+                              launcher=self.launcher, dark=self.dark)
         self.notebook.add(self.compiler, text="Compiler")
-        self.notebook.select(self.launcher)
-        self._tab_icons = []
+        self.notebook.add(self.launcher, text="Launcher")
+        self.notebook.add(self.guide, text="How to use")
+        self._tab_buttons = []
+        self._make_tab_buttons()
+        self.notebook.select(self.compiler)
+        self._last_tab = str(self.compiler)
         self._update_tab_icons()
+        self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
         self.bind_all("<KeyPress>", self._on_key, add="+")
         self.protocol("WM_DELETE_WINDOW", self._cerrar)
         if os.environ.get(devtools.DEV_ENV) == "1":
             self._set_developer_mode(True)
 
+    def _make_tab_buttons(self):
+        entries = (
+            (self.compiler, "Compiler", "compiler"),
+            (self.launcher, "Launcher", "launcher"),
+            (self.guide, "How to use", "help"),
+        )
+        for page, text, icon_name in entries:
+            button = tk.Button(
+                self.tabbar, text=text, compound="left", relief="flat",
+                bd=0, highlightthickness=0, cursor="hand2", padx=12,
+                command=lambda widget=page: self.notebook.select(widget))
+            button.pack(side="left", padx=(8, 0), pady=(4, 0))
+            self._tab_buttons.append((page, button, icon_name))
+
+    def _sync_tab_buttons(self):
+        current = self.notebook.select()
+        for page, button, _icon_name in self._tab_buttons:
+            selected = str(page) == current
+            button.configure(
+                bg=self.palette["card"] if selected else self.palette["bg"],
+                fg=self.palette["accent"] if selected else self.palette["muted"],
+                activebackground=self.palette["button_active"],
+                activeforeground=self.palette["text"],
+                font=("Segoe UI", 10, "bold") if selected else ("Segoe UI", 9),
+                pady=8 if selected else 5)
+
     def _update_tab_icons(self):
-        self._tab_icons = [
-            icons.get_icon("launcher", self.dark),
-            icons.get_icon("compiler", self.dark),
-        ]
-        for index, image in enumerate(self._tab_icons):
-            self.notebook.tab(index, image=image, compound="left")
+        for _page, button, icon_name in self._tab_buttons:
+            button.configure(image=icons.get_icon(icon_name, self.dark))
+        self._sync_tab_buttons()
+
+    def _on_tab_changed(self, event=None):
+        current = self.notebook.select()
+        if not current:
+            return
+        if current == str(self.guide):
+            section = ("build" if self._last_tab == str(self.compiler)
+                       else "manage")
+            self.guide.set_section(section)
+        else:
+            self._last_tab = current
+        self._sync_tab_buttons()
 
     def _on_key(self, event):
         if self._konami.feed(event.keysym):
@@ -174,6 +222,8 @@ class App(tk.Tk):
         self.palette = theme.apply(self, self.dark)
         self.configure(bg=self.palette["bg"])
         self.header.configure(bg=self.palette["header"])
+        self.tabbar.configure(bg=self.palette["bg"])
+        self.tab_border.configure(bg=self.palette["border"])
         self.theme_button.configure(
             text="Light" if self.dark else "Dark",
             image=icons.get_icon("sun" if self.dark else "moon", self.dark),
@@ -183,6 +233,7 @@ class App(tk.Tk):
         self.dev_badge.configure(bg=self.palette["accent"], fg="#ffffff")
         self.launcher.apply_theme(self.dark)
         self.compiler.apply_theme(self.dark)
+        self.guide.apply_theme(self.dark)
         self._update_tab_icons()
 
     def _on_built(self, path):

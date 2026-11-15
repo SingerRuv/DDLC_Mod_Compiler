@@ -46,10 +46,12 @@ def apply(root, dark):
         style.theme_use("clam")
     else:
         style.theme_use(_native_theme(style))
+    style.layout("Hidden.TNotebook",
+                 [("TNotebook.client", {"sticky": "nswe"})])
+    style.layout("TNotebook.Tab", [])
     p = palette(dark)
 
     style.configure("TButton", padding=(8, 4))
-    style.configure("TNotebook.Tab", padding=(12, 6))
     style.configure("Title.TLabel", font=("Segoe UI", 13, "bold"),
                     foreground=p["text"], background=p["header"])
     style.configure("Muted.TLabel", foreground=p["muted"],
@@ -76,18 +78,8 @@ def apply(root, dark):
         style.configure("TEntry", fieldbackground=p["entry"],
                         foreground=p["text"], insertcolor=p["text"])
         style.configure("TNotebook", background=p["bg"], borderwidth=0)
-        style.configure("TNotebook.Tab", background=p["bg"],
-                        foreground=p["muted"], padding=(12, 6))
-        style.map("TNotebook.Tab",
-                  background=[("selected", p["card"])],
-                  foreground=[("selected", p["accent"])])
         style.configure("TProgressbar", background=p["accent"],
                         troughcolor=p["entry"], bordercolor=p["border"])
-        style.configure("Accent.TButton", background=p["accent"],
-                        foreground="#ffffff", bordercolor=p["accent"])
-        style.map("Accent.TButton",
-                  background=[("active", "#e06aa8")],
-                  foreground=[("disabled", "#d9c2cf")])
         style.configure("Header.TFrame", background=p["header"])
         style.configure("Header.TLabel", background=p["header"],
                         foreground=p["text"])

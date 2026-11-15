@@ -1,6 +1,7 @@
 """Launcher tab."""
 import queue
 import threading
+from collections import OrderedDict
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
@@ -21,6 +22,23 @@ CARD_COLUMNS = 3
 CARD_WIDTH = 230
 CARD_LOGO = 150
 CARD_HEIGHT = CARD_LOGO + 185
+IMAGE_CACHE_LIMIT = 128
+IMAGE_CACHE_BYTES = 32 * 1024 * 1024
+
+
+def _image_cache_key(path, logo_size=CARD_LOGO):
+    try:
+        stat = Path(path).stat()
+    except OSError:
+        return None
+    return (str(path), stat.st_mtime_ns, stat.st_size, logo_size)
+
+
+def _image_bytes(image):
+    try:
+        return max(1, int(image.width()) * int(image.height()) * 4)
+    except Exception:
+        return 1
 
 
 class LauncherTab(ttk.Frame):
@@ -38,6 +56,9 @@ class LauncherTab(ttk.Frame):
         self._external_roots = []
         self._extra_paths = []
         self._images = []
+        self._image_cache = OrderedDict()
+        self._image_cache_bytes = 0
+        self._active_image_keys = set()
         self._icon_buttons = []
         self._scan_cancel = threading.Event()
         self._scan_queue = queue.Queue()
@@ -160,9 +181,8 @@ class LauncherTab(ttk.Frame):
         for button in self._action_buttons:
             button.configure(state="disabled")
         roots = [str(MODS_ROOT)] + list(self._external_roots)
-        extra = list(self._extra_paths)
         self._scan_thread = threading.Thread(
-            target=self._scan_worker, args=(roots, extra), daemon=True)
+            target=self._scan_worker, args=(roots,), daemon=True)
         self._scan_thread.start()
         self.after(100, self._poll_scan)
 
@@ -171,19 +191,9 @@ class LauncherTab(ttk.Frame):
             self._scan_cancel.set()
             self.status.set("Cancelling scan...")
 
-    def rescan(self):
-        self.start_scan()
-
-    def _scan_worker(self, roots, extra):
+    def _scan_worker(self, roots):
         try:
             entries = scan_roots(roots, self._scan_cancel)
-            if not self._scan_cancel.is_set():
-                for path in extra:
-                    if self._scan_cancel.is_set():
-                        break
-                    entry = entry_from_path(path)
-                    if entry:
-                        entries.append(entry)
             if self._scan_cancel.is_set():
                 self._scan_queue.put(("cancelled", None))
             else:
@@ -219,6 +229,8 @@ class LauncherTab(ttk.Frame):
     def _apply_entries(self, entries):
         by_path = {entry["path"]: entry for entry in entries}
         for path in self._extra_paths:
+            if path in by_path:
+                continue
             entry = entry_from_path(path)
             if entry:
                 by_path[entry["path"]] = entry
@@ -269,6 +281,7 @@ class LauncherTab(ttk.Frame):
         for child in self.cards.winfo_children():
             child.destroy()
         self._images.clear()
+        self._active_image_keys.clear()
         self.cards.columnconfigure(0, weight=0, minsize=CARD_WIDTH)
         self.cards.columnconfigure(1, weight=0, minsize=CARD_WIDTH)
         self.cards.columnconfigure(2, weight=0, minsize=CARD_WIDTH)
@@ -326,6 +339,24 @@ class LauncherTab(ttk.Frame):
                    command=lambda e=entry: self._rename_mod(e)).grid(
             row=2, column=0, sticky="ew", pady=(4, 0))
 
+    def _remember_image(self, key, image):
+        if key is None:
+            return
+        self._image_cache[key] = image
+        self._image_cache_bytes += _image_bytes(image)
+        self._trim_image_cache()
+
+    def _trim_image_cache(self):
+        while (len(self._image_cache) > IMAGE_CACHE_LIMIT or
+               self._image_cache_bytes > IMAGE_CACHE_BYTES):
+            victim = next(
+                (key for key in self._image_cache
+                 if key not in self._active_image_keys), None)
+            if victim is None:
+                break
+            image = self._image_cache.pop(victim)
+            self._image_cache_bytes -= _image_bytes(image)
+
     def _logo(self, entry):
         candidates = [entry.get("logo")]
         for candidate in candidates:
@@ -334,9 +365,18 @@ class LauncherTab(ttk.Frame):
             path = Path(candidate)
             if not path.is_file():
                 continue
+            key = _image_cache_key(path)
+            if key is not None:
+                cached = self._image_cache.get(key)
+                if cached is not None:
+                    self._image_cache.move_to_end(key)
+                    self._active_image_keys.add(key)
+                    self._images.append(cached)
+                    return cached
             try:
                 if ImageTk is not None:
-                    image_data = Image.open(path).convert("RGBA")
+                    with Image.open(path) as source:
+                        image_data = source.convert("RGBA")
                     image_data.thumbnail((CARD_LOGO, CARD_LOGO),
                                          Image.LANCZOS)
                     image = ImageTk.PhotoImage(image_data, master=self)
@@ -346,6 +386,9 @@ class LauncherTab(ttk.Frame):
                                  CARD_LOGO)
                     if factor > 1:
                         image = image.subsample(factor)
+                if key is not None:
+                    self._active_image_keys.add(key)
+                self._remember_image(key, image)
                 self._images.append(image)
                 return image
             except Exception:

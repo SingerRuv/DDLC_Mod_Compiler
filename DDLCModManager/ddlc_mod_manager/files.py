@@ -95,7 +95,13 @@ def _ignorar_runtime(rel):
 
 def _tam_arbol(origen, filtro=None):
     total = 0
-    for dirpath, _dirnames, filenames in os.walk(origen):
+    for dirpath, dirnames, filenames in os.walk(origen):
+        rel_dir = Path(dirpath).relative_to(origen)
+        if filtro:
+            dirnames[:] = [
+                d for d in dirnames
+                if not filtro(str(rel_dir / d).replace("\\", "/") + "/")
+            ]
         for nombre in filenames:
             p = Path(dirpath) / nombre
             try:
@@ -138,10 +144,11 @@ def _copiar_archivo(origen, destino, cancelar, progress, etiqueta, total,
 
 def _copiar_arbol(origen, destino, log, cancelar, progress,
                   filtro=_ignorar_base, etiqueta=PHASE_COPY_BASE,
-                  resumen="Base copied"):
+                  resumen="Base copied", total_bytes=None):
     origen = Path(origen)
     destino = Path(destino)
-    total_bytes = _tam_arbol(origen, filtro)
+    if total_bytes is None:
+        total_bytes = _tam_arbol(origen, filtro)
     hechos = 0
     copiados_bytes = 0
     for dirpath, dirnames, filenames in os.walk(origen):

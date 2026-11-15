@@ -2,6 +2,7 @@
 import base64
 import pickle
 import shutil
+import os
 import sys
 import tempfile
 import unittest
@@ -12,8 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from ddlc_mod_manager import (builder, compiler_tab, config, devtools, library,
-                              mods, rpa)  # noqa: E402
+from ddlc_mod_manager import (builder, compiler_tab, config, devtools, guide_tab,
+                              launcher_tab, library, mods, rpa)  # noqa: E402
 from ddlc_mod_manager.errors import BuildError  # noqa: E402
 from ddlc_mod_manager.files import _extraer_zip  # noqa: E402
 from ddlc_mod_manager.platforms import platform_name  # noqa: E402
@@ -29,7 +30,7 @@ class AssetsTests(unittest.TestCase):
     def test_icon_assets_exist(self):
         names = ("launcher", "compiler", "folder", "archive", "refresh",
                  "add-folder", "import", "build", "cancel", "play",
-                 "open-folder", "output-folder", "sun", "moon")
+                 "open-folder", "output-folder", "sun", "moon", "help")
         for variant in ("light", "dark"):
             for name in names:
                 self.assertTrue((ROOT / "icons" / variant / (name + ".png"))
@@ -136,6 +137,24 @@ class RpaLogoTests(unittest.TestCase):
     def test_initial_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(library._logo_for(Path(tmp)), "")
+
+    def test_malformed_rpa_returns_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "broken.rpa"
+            archive.write_bytes(b"not an RPA archive")
+            self.assertEqual(rpa.list_images(archive), [])
+
+    def test_index_cache_invalidates_on_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "mod_assets.rpa"
+            self._make_rpa(archive, "mod_assets/logo1.png", self.PNG)
+            first = rpa.list_images(archive)
+            self._make_rpa(archive, "mod_assets/logo2.png", self.PNG)
+            stamp = archive.stat().st_mtime_ns + 1_000_000
+            os.utime(archive, ns=(stamp, stamp))
+            second = rpa.list_images(archive)
+            self.assertEqual(first[0][0], "mod_assets/logo1.png")
+            self.assertEqual(second[0][0], "mod_assets/logo2.png")
 
 
 class ZipSecurityTests(unittest.TestCase):
@@ -252,6 +271,67 @@ class BuilderTests(unittest.TestCase):
             self.assertTrue(output.with_name(output.name + ".zip").is_file())
             self.assertFalse(
                 output.with_name(output.name + ".ddlc-backup").exists())
+
+
+class LauncherCacheTests(unittest.TestCase):
+    def test_image_cache_key_changes_with_logo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            logo = Path(tmp) / "logo.png"
+            logo.write_bytes(b"a")
+            first = launcher_tab._image_cache_key(logo, 150)
+            logo.write_bytes(b"bb")
+            second = launcher_tab._image_cache_key(logo, 150)
+            self.assertIsNotNone(first)
+            self.assertNotEqual(first, second)
+            self.assertIsNone(
+                launcher_tab._image_cache_key(Path(tmp) / "missing.png"))
+
+
+class LogTests(unittest.TestCase):
+    def test_batch_writes_all_lines_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old_path = compiler_tab.LOG_PATH
+            try:
+                compiler_tab.LOG_PATH = Path(tmp) / "build.log"
+                compiler_tab._escribir_logs(["one", "two"])
+                lines = compiler_tab.LOG_PATH.read_text(
+                    encoding="utf-8").splitlines()
+                self.assertEqual(len(lines), 2)
+                self.assertTrue(lines[0].endswith(" one"))
+                self.assertTrue(lines[1].endswith(" two"))
+            finally:
+                compiler_tab.LOG_PATH = old_path
+
+
+class GuideTests(unittest.TestCase):
+    def test_empty_build_starts_at_base(self):
+        done, current = guide_tab.build_step_states(
+            "", "", "Mode: not detected", "")
+        self.assertEqual(done, [False] * 5)
+        self.assertEqual(current, 0)
+
+    def test_build_states_follow_compiler_fields(self):
+        done, current = guide_tab.build_step_states(
+            "base", "mod", "Mode: DDLC overlay", "out")
+        self.assertEqual(done[:4], [True] * 4)
+        self.assertFalse(done[4])
+        self.assertEqual(current, 4)
+
+    def test_unrecognized_mod_stays_at_mod_step(self):
+        done, current = guide_tab.build_step_states(
+            "base", "mod", "Mode: not recognized", "out")
+        self.assertFalse(done[1])
+        self.assertEqual(current, 1)
+
+    def test_building_and_built_states(self):
+        done, current = guide_tab.build_step_states(
+            "base", "mod", "Mode: Ren'Py runtime", "out", building=True)
+        self.assertFalse(done[4])
+        self.assertEqual(current, 4)
+        done, current = guide_tab.build_step_states(
+            "base", "mod", "Mode: Ren'Py runtime", "out", built=True)
+        self.assertEqual(done, [True] * 5)
+        self.assertEqual(current, 4)
 
 
 class DevReloadTests(unittest.TestCase):

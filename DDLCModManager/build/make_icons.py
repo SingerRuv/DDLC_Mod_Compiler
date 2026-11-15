@@ -3,7 +3,8 @@
 Run from the repository root:
     python build/make_icons.py
 
-Pillow is only a development/build-time dependency.
+Pillow is required at runtime for logo resizing; this script only uses it to
+generate the bundled icons.
 """
 from pathlib import Path
 
@@ -103,6 +104,12 @@ def _icon(name, color):
         draw.arc((3 * SCALE, 2 * SCALE, 18 * SCALE, 18 * SCALE),
                  start=55, end=305, fill=color, width=WIDTH * SCALE)
         _line(draw, [(12, 3), (16, 3), (16, 7)], color, 1)
+    elif name == "help":
+        _ellipse(draw, (3, 3, 17, 17), color)
+        _line(draw, [(8, 8), (8, 6), (10, 5), (12, 6), (12, 8),
+                     (10, 10), (10, 12)], color, 2)
+        draw.ellipse((9 * SCALE, 14 * SCALE, 11 * SCALE, 16 * SCALE),
+                     fill=color)
     else:
         raise SystemExit("Unknown icon: %s" % name)
     return image.resize((SIZE, SIZE), Image.Resampling.LANCZOS)
@@ -110,7 +117,7 @@ def _icon(name, color):
 
 ICONS = ("launcher", "compiler", "folder", "archive", "refresh",
          "add-folder", "import", "build", "cancel", "play",
-         "open-folder", "output-folder", "sun", "moon")
+         "open-folder", "output-folder", "sun", "moon", "help")
 COLORS = {"light": (59, 70, 84, 255), "dark": (230, 233, 239, 255)}
 
 

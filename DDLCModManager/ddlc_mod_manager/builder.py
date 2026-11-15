@@ -169,7 +169,7 @@ def _compilar_runtime(base, mod, output, crear_zip=False,
         log("Copying mod...")
         _copiar_arbol(mod, staging, log, cancelar, progress,
                       filtro=_ignorar_runtime, etiqueta=PHASE_COPY_MOD,
-                      resumen="Mod copied")
+                      resumen="Mod copied", total_bytes=mod_bytes)
         if cancelar and cancelar.is_set():
             raise BuildCancelada()
 
@@ -237,7 +237,8 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
         base_assets = {rel: _sha256(base / rel) for rel in BASE_RPAS[1:]}
         overlay_bytes = sum((overlay / rel).stat().st_size
                             for rel in OVERLAY_RPAS)
-        needed = _tam_arbol(base, _ignorar_base) + overlay_bytes + MARGEN_DISCO
+        base_bytes = _tam_arbol(base, _ignorar_base)
+        needed = base_bytes + overlay_bytes + MARGEN_DISCO
         if overwrite and output.exists():
             needed += _tam_arbol(output)
         if crear_zip:
@@ -250,7 +251,8 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
                                         dir=str(output.parent)))
         try:
             log("Copying DDLC base...")
-            _copiar_arbol(base, staging, log, cancelar, progress)
+            _copiar_arbol(base, staging, log, cancelar, progress,
+                          total_bytes=base_bytes)
             if cancelar and cancelar.is_set():
                 raise BuildCancelada()
 

@@ -17,13 +17,16 @@ from .errors import BuildCancelada
 from .mods import detectar_mod
 from .platforms import open_path
 
+LOG_QUEUE_LIMIT = 4096
 
-def _escribir_log(linea):
-    marca = time.strftime("%Y-%m-%d %H:%M:%S")
+
+def _escribir_logs(lineas):
     try:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(LOG_PATH, "a", encoding="utf-8", newline="\n") as fh:
-            fh.write("%s %s\n" % (marca, linea))
+            for linea in lineas:
+                marca = time.strftime("%Y-%m-%d %H:%M:%S")
+                fh.write("%s %s\n" % (marca, linea))
     except Exception:
         pass
 
@@ -45,13 +48,20 @@ class CompilerTab(ttk.Frame):
         self.spinner_var = tk.StringVar(value="")
         self._spin_job = None
         self._spin_idx = 0
-        self._queue = queue.Queue()
+        self._queue = queue.Queue(maxsize=LOG_QUEUE_LIMIT)
         self._cancel = threading.Event()
         self._worker = None
+        self._mod_popup = None
+        self._last_built = None
         self._build_ui()
         self.apply_theme(self.dark)
         self.overlay.trace_add("write", lambda *_: self._actualizar_modo())
+        for variable in (self.base, self.overlay, self.output):
+            variable.trace_add("write", lambda *_: self._clear_built())
         self.after(100, self._pump)
+
+    def _clear_built(self):
+        self._last_built = None
 
     def _button(self, parent, text, icon_name, command):
         button = ttk.Button(
@@ -59,6 +69,59 @@ class CompilerTab(ttk.Frame):
             compound="left", command=command)
         self._icon_buttons.append((button, icon_name))
         return button
+
+    def _show_mod_menu(self):
+        if self._mod_popup is not None:
+            self._close_mod_menu()
+            return
+        p = theme.palette(self.dark)
+        popup = tk.Toplevel(self)
+        popup.overrideredirect(True)
+        frame = tk.Frame(popup, bg=p["card"], bd=0,
+                         highlightbackground=p["border"],
+                         highlightthickness=1)
+        frame.pack(fill="both", expand=True)
+        for text, command in (("Folder...", self._elegir_overlay_dir),
+                              ("ZIP...", self._elegir_overlay_zip)):
+            row = tk.Label(frame, text=text, anchor="w", bg=p["card"],
+                           fg=p["text"], font=("Segoe UI", 9),
+                           padx=10, pady=5)
+            row.pack(fill="x")
+            row.bind("<Enter>",
+                     lambda _e, widget=row: widget.configure(
+                         bg=p["button_active"]))
+            row.bind("<Leave>",
+                     lambda _e, widget=row: widget.configure(bg=p["card"]))
+            row.bind("<Button-1>",
+                     lambda _e, action=command: self._choose_mod(action))
+        popup.update_idletasks()
+        width = self.mod_button.winfo_width()
+        height = frame.winfo_reqheight()
+        x = self.mod_button.winfo_rootx()
+        y = self.mod_button.winfo_rooty() + self.mod_button.winfo_height()
+        if x + width > popup.winfo_screenwidth():
+            x = popup.winfo_screenwidth() - width
+        if y + height > popup.winfo_screenheight():
+            y = self.mod_button.winfo_rooty() - height
+        popup.geometry("%dx%d+%d+%d" % (width, height, x, y))
+        self._mod_popup = popup
+        popup.bind("<Escape>", lambda _e: self._close_mod_menu())
+        popup.bind("<FocusOut>", lambda _e: self._close_mod_menu())
+        popup.focus_force()
+        popup.lift()
+
+    def _choose_mod(self, command):
+        self._close_mod_menu()
+        command()
+
+    def _close_mod_menu(self):
+        popup = self._mod_popup
+        self._mod_popup = None
+        if popup is not None:
+            try:
+                popup.destroy()
+            except tk.TclError:
+                pass
 
     def apply_theme(self, dark):
         self.dark = dark
@@ -89,15 +152,8 @@ class CompilerTab(ttk.Frame):
             row=3, column=0, sticky="w", pady=(2, 8))
         overlay_btns = ttk.Frame(frm)
         overlay_btns.grid(row=3, column=1, padx=(8, 0), sticky="w")
-        self.mod_button = ttk.Menubutton(
-            overlay_btns, text="Choose...",
-            image=icons.get_icon("folder", self.dark), compound="left")
-        self._icon_buttons.append((self.mod_button, "folder"))
-        mod_menu = tk.Menu(self.mod_button, tearoff=0)
-        mod_menu.add_command(label="Folder...",
-                             command=self._elegir_overlay_dir)
-        mod_menu.add_command(label="ZIP...", command=self._elegir_overlay_zip)
-        self.mod_button.configure(menu=mod_menu)
+        self.mod_button = self._button(
+            overlay_btns, "Choose...", "folder", self._show_mod_menu)
         self.mod_button.pack(side="left")
 
         ttk.Label(frm, text="3. Output folder").grid(row=4, column=0,
@@ -243,12 +299,13 @@ class CompilerTab(ttk.Frame):
         self._queue.put(("progress", (etiqueta, hecho, total)))
 
     def _pump(self):
+        lineas_log = []
         try:
             while True:
                 tipo, msg = self._queue.get_nowait()
                 if tipo == "log":
                     self._agregar_log(msg)
-                    _escribir_log(msg)
+                    lineas_log.append(msg)
                 elif tipo == "estado":
                     self.estado.set(msg)
                 elif tipo == "progress":
@@ -274,6 +331,8 @@ class CompilerTab(ttk.Frame):
                     self._terminar(*msg)
         except queue.Empty:
             pass
+        if lineas_log:
+            _escribir_logs(lineas_log)
         self.after(100, self._pump)
 
     def _iniciar(self):
@@ -305,6 +364,7 @@ class CompilerTab(ttk.Frame):
             suffix = (" Ren'Py " + version) if version else " Ren'Py runtime"
         self._log("Mode: %s%s" % (tipo, suffix))
         self._cancel.clear()
+        self._last_built = None
         self.boton.config(state="disabled")
         self.progress.configure(value=0)
         self.estado.set("Starting...")
@@ -341,6 +401,7 @@ class CompilerTab(ttk.Frame):
         if ok:
             self.progress.configure(value=100)
             self.estado.set("Ready")
+            self._last_built = carpeta
             self._log("DONE: %s" % carpeta)
             if zpath:
                 self._log("ZIP: %s" % zpath)
@@ -393,8 +454,20 @@ class CompilerTab(ttk.Frame):
     def is_building(self):
         return bool(self._worker and self._worker.is_alive())
 
+    def guide_state(self):
+        return {
+            "base": self.base.get().strip(),
+            "mod": self.overlay.get().strip(),
+            "mode": self.modo.get(),
+            "output": self.output.get().strip(),
+            "built": bool(self._last_built),
+            "building": self.is_building(),
+        }
+
     def cancel_for_close(self):
         if self.is_building():
             self._cancel.set()
             self.estado.set("Cancelling and closing...")
-            self._log("Cancelling and closing...")
+            message = "Cancelling and closing..."
+            self._agregar_log(message)
+            _escribir_logs([message])
