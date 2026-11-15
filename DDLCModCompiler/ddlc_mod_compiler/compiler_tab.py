@@ -97,23 +97,20 @@ class CompilerTab(ttk.Frame):
         ttk.Button(bar, text="Cancel", command=self._cancelar).pack(
             side="left", padx=(8, 0))
         self.progress = ttk.Progressbar(bar, mode="determinate", maximum=100,
-                                        value=0)
-        self.progress.pack(side="left", fill="x", expand=True, padx=(12, 0))
-
-        statusbar = ttk.Frame(frm)
-        statusbar.grid(row=8, column=0, columnspan=4, sticky="ew", pady=(0, 6))
-        self.spinner = ttk.Label(statusbar, textvariable=self.spinner_var,
+                                        value=0, length=220)
+        self.progress.pack(side="left", padx=(12, 8))
+        self.spinner = ttk.Label(bar, textvariable=self.spinner_var,
                                  width=3, anchor="center")
         self.spinner.pack(side="left")
-        ttk.Label(statusbar, textvariable=self.estado, anchor="w").pack(
-            side="left", fill="x", expand=True, padx=(4, 0))
+        ttk.Label(bar, textvariable=self.estado, anchor="w").pack(
+            side="left", padx=(4, 0))
 
         self.log = ScrolledText(frm, height=8, wrap="word", state="disabled")
-        self.log.grid(row=9, column=0, columnspan=4, sticky="nsew")
+        self.log.grid(row=8, column=0, columnspan=4, sticky="nsew")
         frm.columnconfigure(0, weight=1)
         frm.columnconfigure(1, weight=1)
         frm.columnconfigure(2, weight=1)
-        frm.rowconfigure(9, weight=1)
+        frm.rowconfigure(8, weight=1)
 
     def _elegir_base(self):
         p = filedialog.askdirectory(title="DDLC base folder")
