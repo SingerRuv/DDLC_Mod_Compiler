@@ -3,7 +3,7 @@ import queue
 import threading
 from pathlib import Path
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from . import icons, theme
 from .config import APP, MODS_ROOT, ensure_mods_root, resource_path
@@ -13,7 +13,7 @@ from .platforms import (find_launcher, open_launcher, open_path,
                         platform_name)
 CARD_COLUMNS = 3
 CARD_WIDTH = 230
-CARD_HEIGHT = 220
+CARD_HEIGHT = 260
 CARD_LOGO = 42
 
 
@@ -310,6 +310,9 @@ class LauncherTab(ttk.Frame):
                    compound="left",
                    command=lambda e=entry: self._open_folder(e)).grid(
             row=1, column=0, sticky="ew", pady=(4, 0))
+        ttk.Button(buttons, text="Rename...",
+                   command=lambda e=entry: self._rename_mod(e)).grid(
+            row=2, column=0, sticky="ew", pady=(4, 0))
 
     def _logo(self, entry):
         candidates = [entry.get("logo"), resource_path("icon.png")]
@@ -348,3 +351,36 @@ class LauncherTab(ttk.Frame):
             open_path(entry["path"])
         except Exception as exc:
             messagebox.showerror(APP, "Could not open the folder:\n%s" % exc)
+
+    def _rename_mod(self, entry):
+        old = Path(entry["path"])
+        name = simpledialog.askstring(
+            "Rename mod", "New folder name:", initialvalue=old.name,
+            parent=self)
+        if name is None:
+            return
+        name = name.strip()
+        if (not name or name in (".", "..") or
+                any(c in name for c in '\\/:*?"<>|')):
+            messagebox.showwarning(APP, "Enter a valid folder name.")
+            return
+        target = old.with_name(name)
+        if target == old:
+            return
+        if target.exists():
+            messagebox.showerror(APP, "A folder with that name already exists.")
+            return
+        try:
+            old.rename(target)
+        except OSError as exc:
+            messagebox.showerror(APP, "Could not rename the mod:\n%s" % exc)
+            return
+        old_path = str(old.resolve())
+        new_path = str(target.resolve())
+        self._all_entries = [
+            e for e in self._all_entries if e["path"] != old_path]
+        self._extra_paths = [
+            new_path if path == old_path else path
+            for path in self._extra_paths]
+        self._apply_entries(self._all_entries)
+

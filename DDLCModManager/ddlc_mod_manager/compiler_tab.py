@@ -99,9 +99,8 @@ class CompilerTab(ttk.Frame):
                                                              sticky="w")
         ttk.Entry(frm, textvariable=self.output, state="readonly").grid(
             row=5, column=0, columnspan=3, sticky="ew", pady=(2, 8))
-        self._button(frm, "Open output folder", "output-folder",
-                     self._abrir_salida).grid(
-            row=5, column=3, padx=(8, 0))
+        self._button(frm, "Open folder", "output-folder",
+                     self._abrir_salida).grid(row=5, column=3, padx=(8, 0))
 
         checks = ttk.Frame(frm)
         checks.grid(row=6, column=0, columnspan=4, sticky="w", pady=(2, 8))
@@ -179,8 +178,6 @@ class CompilerTab(ttk.Frame):
         ensure_mods_root()
         path = Path(p)
         nombre = path.stem if path.is_file() else path.name
-        if not nombre.lower().startswith("ddlc "):
-            nombre = "DDLC " + nombre
         self.output.set(str(MODS_ROOT / nombre))
 
     def _abrir_salida(self):
