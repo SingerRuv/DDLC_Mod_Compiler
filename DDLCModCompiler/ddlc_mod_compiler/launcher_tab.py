@@ -7,7 +7,8 @@ from tkinter import filedialog, messagebox, ttk
 
 from . import icons, theme
 from .config import APP, MODS_ROOT, ensure_mods_root, resource_path
-from .library import (entry_from_path, load_state, save_state, scan_roots)
+from .library import (entry_from_path, filter_entries, load_state, save_state,
+                      scan_roots, sort_entries)
 from .platforms import (find_launcher, open_launcher, open_path,
                         platform_name)
 CARD_COLUMNS = 3
@@ -23,6 +24,11 @@ class LauncherTab(ttk.Frame):
         self.platform = platform_name()
         self.status = tk.StringVar(value="No mods loaded.")
         self._entries = []
+        self._all_entries = []
+        self.search_var = tk.StringVar()
+        self.runtime_filter = tk.StringVar(value="All")
+        self.sort_mode = tk.StringVar(value="Name A-Z")
+        self._view_job = None
         self._external_roots = []
         self._extra_paths = []
         self._images = []
@@ -62,6 +68,27 @@ class LauncherTab(ttk.Frame):
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 4))
         ttk.Label(self, text="Platform: %s" % self.platform,
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 4))
+
+        filters = ttk.Frame(self)
+        filters.pack(fill="x", pady=(0, 4))
+        ttk.Label(filters, text="Search:").pack(side="left")
+        ttk.Entry(filters, textvariable=self.search_var, width=28).pack(
+            side="left", padx=(4, 12))
+        ttk.Label(filters, text="Filter:").pack(side="left")
+        ttk.Combobox(
+            filters, textvariable=self.runtime_filter, state="readonly",
+            width=12,
+            values=("All", "Ren'Py 7", "Ren'Py 8", "DDLC build",
+                    "Other")).pack(side="left", padx=(4, 12))
+        ttk.Label(filters, text="Sort:").pack(side="left")
+        ttk.Combobox(
+            filters, textvariable=self.sort_mode, state="readonly", width=12,
+            values=("Name A-Z", "Name Z-A", "Newest first",
+                    "Oldest first")).pack(side="left", padx=(4, 0))
+        self.search_var.trace_add("write", lambda *_: self._schedule_view())
+        self.runtime_filter.trace_add("write", lambda *_: self._schedule_view())
+        self.sort_mode.trace_add("write", lambda *_: self._schedule_view())
+
         ttk.Label(self, textvariable=self.status).pack(anchor="w", pady=(0, 8))
 
         body = ttk.Frame(self)
@@ -84,12 +111,34 @@ class LauncherTab(ttk.Frame):
             "<Configure>",
             lambda e: self.canvas.itemconfigure(self._window, width=e.width))
 
+    def _schedule_view(self):
+        if self._view_job:
+            self.after_cancel(self._view_job)
+        self._view_job = self.after(120, self._apply_view)
+
+    def _apply_view(self):
+        self._view_job = None
+        self._entries = sort_entries(
+            filter_entries(self._all_entries, self.search_var.get(),
+                           self.runtime_filter.get()),
+            self.sort_mode.get())
+        self._render()
+        total = len(self._all_entries)
+        shown = len(self._entries)
+        if not total:
+            self.status.set("No runnable mods loaded.")
+        elif shown == total:
+            self.status.set("%d runnable %s found." % (
+                total, "mod" if total == 1 else "mods"))
+        else:
+            self.status.set("%d of %d runnable mods shown." % (shown, total))
+
     def apply_theme(self, dark):
         self.dark = dark
         self.canvas.configure(bg=theme.palette(dark)["bg"])
         for button, icon_name in self._icon_buttons:
             button.configure(image=icons.get_icon(icon_name, dark))
-        self._render()
+        self._apply_view()
 
     def is_scanning(self):
         return bool(self._scan_thread and self._scan_thread.is_alive())
@@ -148,9 +197,6 @@ class LauncherTab(ttk.Frame):
         self._scan_thread = None
         if kind == "done":
             self._apply_entries(payload)
-            count = len(self._entries)
-            self.status.set("%d runnable %s found." % (
-                count, "mod" if count == 1 else "mods"))
         elif kind == "cancelled":
             self.status.set("Scan cancelled.")
         else:
@@ -170,14 +216,13 @@ class LauncherTab(ttk.Frame):
             entry = entry_from_path(path)
             if entry:
                 by_path[entry["path"]] = entry
-        self._entries = sorted(by_path.values(),
-                               key=lambda e: e["name"].casefold())
-        self._extra_paths = [entry["path"] for entry in self._entries]
+        self._all_entries = list(by_path.values())
+        self._extra_paths = [entry["path"] for entry in self._all_entries]
         try:
-            save_state(self._external_roots, self._entries)
+            save_state(self._external_roots, self._all_entries)
         except OSError as exc:
             self.status.set("Could not save launcher state: %s" % exc)
-        self._render()
+        self._apply_view()
 
     def _open_mods_root(self):
         ensure_mods_root()
@@ -212,7 +257,7 @@ class LauncherTab(ttk.Frame):
         if entry["path"] not in self._extra_paths:
             self._extra_paths.append(entry["path"])
         if not self.is_scanning():
-            self._apply_entries(self._entries)
+            self._apply_entries(self._all_entries)
 
     def _render(self):
         for child in self.cards.winfo_children():
@@ -222,12 +267,14 @@ class LauncherTab(ttk.Frame):
         self.cards.columnconfigure(1, weight=0, minsize=CARD_WIDTH)
         self.cards.columnconfigure(2, weight=0, minsize=CARD_WIDTH)
         if not self._entries:
+            text = ("No mods match the current filters."
+                    if self._all_entries else
+                    "No runnable mods loaded.\n"
+                    "Build a mod or import one to get started.")
             ttk.Label(
-                self.cards,
-                text="No runnable mods loaded.\n"
-                     "Build a mod or import one to get started.",
-                justify="center").grid(row=0, column=0, columnspan=CARD_COLUMNS,
-                                       pady=40, sticky="n")
+                self.cards, text=text, justify="center").grid(
+                row=0, column=0, columnspan=CARD_COLUMNS,
+                pady=40, sticky="n")
             return
         for i, entry in enumerate(self._entries):
             self._card(entry, i // CARD_COLUMNS, i % CARD_COLUMNS)

@@ -118,7 +118,6 @@ def _crear_zip(output, log, status, progress, cancelar, overwrite=False):
         raise
     return zip_final
 
-
 def _abrir_juego(output, log):
     exe = find_launcher(output)
     if exe:
@@ -146,7 +145,7 @@ def _finalizar_build(output, staging, crear_zip, overwrite, abrir_juego,
     return output, zip_final
 
 
-def _compilar_runtime(base, mod, output, incluir_docs=True, crear_zip=False,
+def _compilar_runtime(base, mod, output, crear_zip=False,
                       abrir_juego=False, log=print, status=lambda _s: None,
                       progress=lambda *a: None, cancelar=None, overwrite=False):
     base = validar_base(base, solo_assets=True)
@@ -221,10 +220,6 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
             raise
     else:
         mod_root, tipo = _buscar_raiz_mod(mod_original)
-    if tipo is None:
-        if tmp_zip:
-            shutil.rmtree(tmp_zip, ignore_errors=True)
-        raise BuildError("Unrecognized mod: not an overlay or Ren'Py runtime.")
     try:
         if tipo == "fuente":
             raise BuildError("This is a Ren'Py source project. This mode does "
@@ -232,10 +227,9 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
         if tipo == "runtime":
             log("Ren'Py %s runtime detected." % _version_renpy(mod_root))
             return _compilar_runtime(
-                base, mod_root, output, incluir_docs=incluir_docs,
-                crear_zip=crear_zip, abrir_juego=abrir_juego, log=log,
-                status=status, progress=progress, cancelar=cancelar,
-                overwrite=overwrite)
+                base, mod_root, output, crear_zip=crear_zip,
+                abrir_juego=abrir_juego, log=log, status=status,
+                progress=progress, cancelar=cancelar, overwrite=overwrite)
         base = validar_base(base)
         overlay = validar_overlay(mod_root)
 

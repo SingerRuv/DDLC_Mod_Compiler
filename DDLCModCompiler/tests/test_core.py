@@ -36,6 +36,27 @@ class ZipSecurityTests(unittest.TestCase):
     def test_platform_name(self):
         self.assertIn(platform_name(), ("Windows", "macOS", "Linux"))
 
+    def test_filter_and_sort(self):
+        entries = [
+            {"name": "MySilver", "path": "/mods/MySilver",
+             "kind": "Ren'Py 7", "mtime": 1},
+            {"name": "Another", "path": "/mods/Another",
+             "kind": "Ren'Py 8", "mtime": 3},
+            {"name": "Vanilla", "path": "/mods/Vanilla",
+             "kind": "DDLC build", "mtime": 2},
+        ]
+        by_name = library.filter_entries(entries, "silver")
+        self.assertEqual([e["name"] for e in by_name], ["MySilver"])
+        by_path = library.filter_entries(entries, "/mods/Another")
+        self.assertEqual([e["name"] for e in by_path], ["Another"])
+        only_7 = library.filter_entries(entries, "", "Ren'Py 7")
+        self.assertEqual([e["name"] for e in only_7], ["MySilver"])
+        other = library.filter_entries(entries, "", "Other")
+        self.assertEqual(other, [])
+        newest = library.sort_entries(entries, "Newest first")
+        self.assertEqual([e["name"] for e in newest],
+                         ["Another", "Vanilla", "MySilver"])
+
     def test_blocks_parent_traversal(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "bad.zip"

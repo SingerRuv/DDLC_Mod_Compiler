@@ -1,5 +1,6 @@
 """Mod discovery and Launcher persistence."""
 import json
+import unicodedata
 from pathlib import Path
 
 from .config import MODS_ROOT
@@ -34,12 +35,17 @@ def entry_from_path(path):
         if launcher.suffix.lower() == ".app" and not launcher.is_dir():
             return None
         kind = mod_kind(root)
+        try:
+            mtime = root.stat().st_mtime
+        except OSError:
+            mtime = 0
         return {
             "path": str(root.resolve()),
             "name": root.name,
             "launcher": str(launcher.resolve()),
             "kind": kind,
             "logo": _logo_for(root),
+            "mtime": mtime,
         }
     except OSError:
         return None
@@ -90,6 +96,44 @@ def scan_roots(roots, cancel=None):
         for entry in scan_mods(root, cancel):
             found[entry["path"]] = entry
     return sorted(found.values(), key=lambda e: e["name"].casefold())
+
+
+def _search_text(value):
+    value = unicodedata.normalize("NFKD", value or "")
+    return "".join(c for c in value
+                   if not unicodedata.combining(c)).casefold()
+
+
+def filter_entries(entries, query="", runtime="All"):
+    query = _search_text(query.strip())
+    result = []
+    for entry in entries:
+        kind = entry.get("kind", "")
+        if runtime == "Other":
+            if kind in ("Ren'Py 7", "Ren'Py 8", "DDLC build"):
+                continue
+        elif runtime != "All" and kind != runtime:
+            continue
+        if query:
+            haystack = _search_text(" ".join((
+                entry.get("name", ""), entry.get("path", ""), kind)))
+            if query not in haystack:
+                continue
+        result.append(entry)
+    return result
+
+
+def sort_entries(entries, mode="Name A-Z"):
+    entries = list(entries)
+    if mode == "Name Z-A":
+        return sorted(entries, key=lambda e: e["name"].casefold(),
+                      reverse=True)
+    if mode == "Newest first":
+        return sorted(entries, key=lambda e: e.get("mtime", 0),
+                      reverse=True)
+    if mode == "Oldest first":
+        return sorted(entries, key=lambda e: e.get("mtime", 0))
+    return sorted(entries, key=lambda e: e["name"].casefold())
 
 
 def load_state():
