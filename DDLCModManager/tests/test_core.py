@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from ddlc_mod_manager import builder, config, library  # noqa: E402
+from ddlc_mod_manager import builder, compiler_tab, config, library  # noqa: E402
 from ddlc_mod_manager.errors import BuildError  # noqa: E402
 from ddlc_mod_manager.files import _extraer_zip  # noqa: E402
 from ddlc_mod_manager.platforms import platform_name  # noqa: E402
@@ -30,6 +30,9 @@ class AssetsTests(unittest.TestCase):
             for name in names:
                 self.assertTrue((ROOT / "icons" / variant / (name + ".png"))
                                 .is_file(), name)
+
+    def test_compiler_tab_imports(self):
+        self.assertTrue(callable(compiler_tab.compilar))
 
     def test_legacy_data_migration(self):
         with tempfile.TemporaryDirectory() as tmp:

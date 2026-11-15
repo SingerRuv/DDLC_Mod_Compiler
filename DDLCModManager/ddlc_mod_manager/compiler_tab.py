@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from . import icons, theme
+from .builder import compilar
 from .config import (APP, LOG_PATH, MODS_ROOT, PHASE_COPY_ASSETS,
                      PHASE_COPY_BASE, PHASE_COPY_MOD, PHASE_COPY_OVERLAY,
                      PHASE_VERIFY, PHASE_ZIP, ensure_mods_root)
