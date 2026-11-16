@@ -39,7 +39,7 @@ class App(tk.Tk):
         except Exception:
             pass
         self.title(APP)
-        self.geometry("800x500")
+        self.geometry("800x600")
         self.resizable(False, False)
 
         self.header = tk.Frame(self, bg=self.palette["header"], height=42)

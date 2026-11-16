@@ -136,36 +136,48 @@ class CompilerTab(ttk.Frame):
     def _build_ui(self):
         frm = ttk.Frame(self, padding=12)
         frm.pack(fill="both", expand=True)
+        frm.columnconfigure(0, weight=1)
+        frm.rowconfigure(1, weight=1)
 
-        ttk.Label(frm, text="1. DDLC base").grid(row=0, column=0, sticky="w")
-        ttk.Entry(frm, textvariable=self.base, width=64, state="readonly").grid(
+        controls = ttk.Frame(frm)
+        controls.grid(row=0, column=0)
+        controls.columnconfigure(0, weight=0)
+        controls.columnconfigure(1, weight=0)
+        controls.columnconfigure(2, weight=1)
+
+        ttk.Label(controls, text="1. DDLC base").grid(
+            row=0, column=0, sticky="w")
+        ttk.Entry(controls, textvariable=self.base, width=64,
+                  state="readonly").grid(
             row=1, column=0, sticky="w", pady=(2, 8))
-        self._button(frm, "Choose folder...", "folder",
+        self._button(controls, "Choose folder...", "folder",
                      self._elegir_base).grid(
             row=1, column=1, padx=(8, 0), sticky="w")
 
-        mod_header = ttk.Frame(frm)
+        mod_header = ttk.Frame(controls)
         mod_header.grid(row=2, column=0, columnspan=3, sticky="w")
         ttk.Label(mod_header, text="2. Mod (folder or ZIP)").pack(
             side="left")
-        ttk.Entry(frm, textvariable=self.overlay, width=64, state="readonly").grid(
+        ttk.Entry(controls, textvariable=self.overlay, width=64,
+                  state="readonly").grid(
             row=3, column=0, sticky="w", pady=(2, 8))
-        overlay_btns = ttk.Frame(frm)
+        overlay_btns = ttk.Frame(controls)
         overlay_btns.grid(row=3, column=1, padx=(8, 0), sticky="w")
         self.mod_button = self._button(
             overlay_btns, "Choose...", "folder", self._show_mod_menu)
         self.mod_button.pack(side="left")
 
-        ttk.Label(frm, text="3. Output folder").grid(row=4, column=0,
-                                                             sticky="w")
-        ttk.Entry(frm, textvariable=self.output, state="readonly",
+        ttk.Label(controls, text="3. Output folder").grid(
+            row=4, column=0, sticky="w")
+        ttk.Entry(controls, textvariable=self.output, state="readonly",
                   width=64).grid(row=5, column=0, sticky="w", pady=(2, 8))
-        self._button(frm, "Open folder", "output-folder",
+        self._button(controls, "Open folder", "output-folder",
                      self._abrir_salida).grid(
             row=5, column=1, padx=(8, 0), sticky="w")
 
-        checks = ttk.Frame(frm)
-        checks.grid(row=6, column=0, columnspan=3, sticky="w", pady=(2, 8))
+        checks = ttk.Frame(controls)
+        checks.grid(row=6, column=0, columnspan=3, sticky="w",
+                    pady=(14, 8))
         ttk.Checkbutton(checks, text="Include credits and README",
                         variable=self.docs).pack(side="left", padx=(0, 18))
         ttk.Checkbutton(checks, text="Create ZIP", variable=self.zip).pack(
@@ -176,7 +188,7 @@ class CompilerTab(ttk.Frame):
                                     anchor="w")
         self.modo_label.pack(side="left", padx=(18, 0))
 
-        bar = ttk.Frame(frm)
+        bar = ttk.Frame(controls)
         bar.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(4, 8))
         self.boton = self._button(bar, "Build", "build", self._iniciar)
         self.boton.pack(side="left")
@@ -192,11 +204,7 @@ class CompilerTab(ttk.Frame):
             side="left", padx=(4, 0))
 
         self.log = ScrolledText(frm, height=8, wrap="word", state="disabled")
-        self.log.grid(row=8, column=0, columnspan=3, sticky="nsew")
-        frm.columnconfigure(0, weight=0)
-        frm.columnconfigure(1, weight=0)
-        frm.columnconfigure(2, weight=1)
-        frm.rowconfigure(8, weight=1)
+        self.log.grid(row=1, column=0, sticky="nsew")
 
     def _elegir_base(self):
         p = filedialog.askdirectory(title="DDLC base folder")
