@@ -95,13 +95,13 @@ class GuideTab(ttk.Frame):
         body.pack(fill="both", expand=True)
         body.columnconfigure(0, minsize=210)
         body.columnconfigure(1, weight=1)
-        body.rowconfigure(0, weight=1)
+        body.rowconfigure(0, weight=0)
 
         self._steps = tk.Frame(body)
-        self._steps.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        self._steps.grid(row=0, column=0, sticky="new", padx=(0, 10))
 
         self._detail = tk.Frame(body, bd=0, highlightthickness=1)
-        self._detail.grid(row=0, column=1, sticky="nsew")
+        self._detail.grid(row=0, column=1, sticky="new")
         self._detail_title = tk.Label(
             self._detail, text="", anchor="w", justify="left",
             font=("Segoe UI", 11, "bold"), wraplength=470)
@@ -109,20 +109,19 @@ class GuideTab(ttk.Frame):
         self._detail_body = tk.Label(
             self._detail, text="", anchor="nw", justify="left",
             font=("Segoe UI", 9), wraplength=470)
-        self._detail_body.pack(fill="both", expand=True, padx=12)
+        self._detail_body.pack(fill="x", padx=12)
         self._detail_hint = tk.Label(
             self._detail, text="", anchor="w", justify="left",
             font=("Segoe UI", 8), wraplength=470)
         self._detail_hint.pack(fill="x", padx=12, pady=(4, 8))
         self._detail_button = ttk.Button(self._detail, text="Go to Compiler")
-        self._detail_button.pack(side="bottom", anchor="e",
-                                 padx=12, pady=(0, 12))
+        self._detail_button.pack(anchor="e", padx=12, pady=(0, 12))
 
     def set_section(self, section):
-        if section not in ("build", "manage") or section == self._section:
+        if section not in ("build", "manage"):
             return
         self._section = section
-        self._selected = None
+        self._selected = 0
         self._signature = None
         self._style_sections()
         self._render()
