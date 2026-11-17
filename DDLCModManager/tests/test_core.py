@@ -330,9 +330,11 @@ class LibraryTests(unittest.TestCase):
             staging = root / (config.STAGING_PREFIX + "Mod-abc")
             staging.mkdir()
             put(staging, "Game.exe")
+            put(staging, "Game.sh")
             good = root / "Good"
             good.mkdir()
             put(good, "Game.exe")
+            put(good, "Game.sh")
             entries = library.scan_mods(root)
             self.assertEqual([e["name"] for e in entries], ["Good"])
 
