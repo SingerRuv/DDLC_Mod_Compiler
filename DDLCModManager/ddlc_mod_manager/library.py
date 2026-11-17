@@ -5,7 +5,7 @@ import unicodedata
 from pathlib import Path, PurePosixPath
 
 from . import rpa
-from .config import DATA_DIR, MODS_ROOT
+from .config import DATA_DIR, MODS_ROOT, STAGING_PREFIX
 from .mods import mod_kind
 from .platforms import find_launcher
 
@@ -77,7 +77,10 @@ def _rpa_logo(root):
     cache = DATA_DIR / "logo-cache" / (digest + suffix)
     if cache.is_file():
         return str(cache)
-    extracted = rpa.extract(archive, offset, length, cache)
+    try:
+        extracted = rpa.extract(archive, offset, length, cache)
+    except OSError:
+        return ""
     return str(extracted) if extracted else ""
 
 
@@ -135,7 +138,8 @@ def scan_mods(root, cancel=None):
         try:
             children = [p for p in directory.iterdir()
                         if p.is_dir() and not p.is_symlink() and
-                        p.name not in SKIP_DIRS]
+                        p.name not in SKIP_DIRS and
+                        not p.name.startswith(STAGING_PREFIX)]
         except OSError:
             return
         for child in children:
@@ -209,6 +213,8 @@ def load_state():
         data = json.loads(STORE_PATH.read_text(encoding="utf-8"))
     except Exception:
         return [], []
+    if not isinstance(data, dict):
+        return [], []
     roots = data.get("external_roots", [])
     paths = data.get("mods", [])
     if not isinstance(roots, list):
@@ -216,7 +222,7 @@ def load_state():
     if not isinstance(paths, list):
         paths = []
     old_root = data.get("root")
-    if old_root:
+    if isinstance(old_root, str) and old_root:
         try:
             old = Path(old_root).resolve()
             if old != MODS_ROOT.resolve() and str(old) not in roots:

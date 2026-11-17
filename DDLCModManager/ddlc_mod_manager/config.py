@@ -9,6 +9,7 @@ MAX_ZIP_FILES = 200000
 MAX_ZIP_BYTES = 4 * 1024 * 1024 * 1024
 COPY_CHUNK = 1024 * 1024
 MARGEN_DISCO = 200 * 1024 * 1024
+STAGING_PREFIX = ".ddlc-build-"
 
 DOCS = ("Credits.txt", "ThankYou.txt", "README.html")
 BASE_RPAS = ("game/scripts.rpa", "game/images.rpa", "game/audio.rpa",
@@ -64,22 +65,43 @@ def resource_path(nombre):
 LOG_PATH = (app_dir() / "DDLCModManager.log" if sys.platform == "win32"
             else DATA_DIR / "DDLCModManager.log")
 SETTINGS_PATH = DATA_DIR / "settings.json"
+DEFAULT_SETTINGS = {"dark": False, "last_base": ""}
 
 
-def load_theme():
+def load_settings():
+    data = dict(DEFAULT_SETTINGS)
     try:
-        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
-        return bool(data.get("dark", False))
-    except Exception:
-        return False
+        loaded = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return data
+    if isinstance(loaded, dict):
+        data.update(loaded)
+    return data
 
 
-def save_theme(dark):
+def save_settings(settings):
+    data = load_settings()
+    data.update(settings)
     try:
         SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
         tmp = SETTINGS_PATH.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"dark": bool(dark)}, indent=2),
-                       encoding="utf-8")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         tmp.replace(SETTINGS_PATH)
     except OSError:
         pass
+
+
+def load_theme():
+    return bool(load_settings().get("dark", False))
+
+
+def save_theme(dark):
+    save_settings({"dark": bool(dark)})
+
+
+def load_last_base():
+    return str(load_settings().get("last_base", "") or "")
+
+
+def save_last_base(path):
+    save_settings({"last_base": str(path or "")})

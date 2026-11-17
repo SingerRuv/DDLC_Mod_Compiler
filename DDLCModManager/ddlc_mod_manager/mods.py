@@ -17,6 +17,17 @@ def _version_from_text(text):
     return match.group(1) if match else ""
 
 
+def _version_tuple(text):
+    match = re.search(r"version_tuple\s*=\s*\(([^)]*)\)", text)
+    if match:
+        values = re.findall(r"\d+", match.group(1))
+        return tuple(int(value) for value in values)
+    match = re.search(r"version\s*=\s*[\"']Ren'Py\s+([\d.]+)", text)
+    if match:
+        return tuple(int(value) for value in match.group(1).split("."))
+    return ()
+
+
 def _version_renpy(root):
     root = Path(root)
     init_file = root / "renpy" / "__init__.py"
@@ -40,6 +51,27 @@ def _version_renpy(root):
     if any(n.startswith(("python2", "pythonlib2")) for n in nombres):
         return "6"
     return ""
+
+
+DDLC_EDITIONS = {
+    (6, 99, 12, 2): "DDLC 1.0.0",
+    (6, 99, 12, 4): "DDLC 1.1.1",
+}
+
+
+def base_info(root):
+    """Return (full Ren'Py version, DDLC edition) for a base folder."""
+    root = Path(root)
+    try:
+        text = (root / "renpy" / "__init__.py").read_text(
+            encoding="utf-8", errors="ignore")
+    except OSError:
+        text = ""
+    values = _version_tuple(text)
+    if values:
+        version = ".".join(str(value) for value in values[:4])
+        return version, DDLC_EDITIONS.get(values[:4], "")
+    return _version_renpy(root), ""
 
 
 def _runtime_ok(root):
@@ -149,11 +181,13 @@ def detectar_mod(path):
 def mod_kind(root):
     """Return a short human-readable kind for a runnable mod."""
     r = Path(root)
+    game = r / "game"
+    if ((game / "scripts.rpa").is_file() and
+            (game / "mod_assets.rpa").is_file()):
+        return "DDLC build"
     if _runtime_ok(r):
         version = _version_renpy(r)
         return "Ren'Py %s" % version if version else "Ren'Py runtime"
-    if (r / "game" / "scripts.rpa").is_file():
-        return "DDLC build"
     return "Runnable mod"
 
 

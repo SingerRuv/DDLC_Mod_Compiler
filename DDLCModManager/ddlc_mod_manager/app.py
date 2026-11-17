@@ -7,9 +7,11 @@ from tkinter import messagebox, ttk
 
 from . import devtools, icons, theme
 from .compiler_tab import CompilerTab
-from .config import APP, load_theme, migrate_legacy_data, resource_path, save_theme
+from .config import (APP, DATA_DIR, LOG_PATH, load_theme, migrate_legacy_data,
+                     resource_path, save_theme)
 from .guide_tab import GuideTab
 from .launcher_tab import LauncherTab
+from .platforms import open_path
 
 
 class App(tk.Tk):
@@ -21,6 +23,9 @@ class App(tk.Tk):
         self._dev_snapshot = None
         self._dev_pending = False
         self._dev_relaunching = False
+        self._dev_log = None
+        self._dev_dialog = None
+        self._dev_paused = False
         self._supervised = os.environ.get(devtools.SUPERVISED_ENV) == "1"
         self._source_available = devtools.source_available()
         migrate_legacy_data()
@@ -39,8 +44,9 @@ class App(tk.Tk):
         except Exception:
             pass
         self.title(APP)
-        self.geometry("800x600")
-        self.resizable(False, False)
+        self.geometry("800x680")
+        self.minsize(800, 600)
+        self.resizable(False, True)
 
         self.header = tk.Frame(self, bg=self.palette["header"], height=42)
         self.header.pack(fill="x")
@@ -50,7 +56,8 @@ class App(tk.Tk):
         self.title_label.pack(side="left", padx=(14, 0), pady=9)
         self.dev_badge = tk.Label(
             self.header, text="DEV", bg=self.palette["accent"], fg="#ffffff",
-            font=("Segoe UI", 8, "bold"), padx=8, pady=2)
+            font=("Segoe UI", 8, "bold"), padx=8, pady=2, cursor="hand2")
+        self.dev_badge.bind("<Button-1>", lambda _e: self._open_dev_tools())
         self.theme_button = tk.Button(
             self.header, text="Light" if self.dark else "Dark",
             command=self._toggle_theme,
@@ -85,8 +92,11 @@ class App(tk.Tk):
         self._update_tab_icons()
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
         self.bind_all("<KeyPress>", self._on_key, add="+")
+        self.bind_all("<Control-r>", self._dev_reload_shortcut, add="+")
+        self.bind_all("<Control-Shift-P>", self._dev_pause_shortcut, add="+")
+        self.bind_all("<Control-Shift-L>", self._dev_log_shortcut, add="+")
         self.protocol("WM_DELETE_WINDOW", self._cerrar)
-        if os.environ.get(devtools.DEV_ENV) == "1":
+        if os.environ.get(devtools.DEV_ENV) == "1" or self._supervised:
             self._set_developer_mode(True)
 
     def _make_tab_buttons(self):
@@ -137,12 +147,19 @@ class App(tk.Tk):
             self._set_developer_mode(not self._dev_mode)
 
     def _set_developer_mode(self, enabled):
+        if self._supervised:
+            self._dev_mode = True
+            self.dev_badge.configure(text="DEV (external)")
+            self.dev_badge.pack(side="left", padx=(10, 0), pady=10)
+            return
         enabled = bool(enabled)
         if enabled == self._dev_mode:
             return
         self._dev_mode = enabled
+        self.dev_badge.configure(text="DEV")
         if not enabled:
             self.dev_badge.pack_forget()
+            self._close_dev_tools()
             self._stop_dev_watcher()
             return
         self.dev_badge.pack(side="left", padx=(10, 0), pady=10)
@@ -151,8 +168,7 @@ class App(tk.Tk):
                 APP, "Developer Mode active.\n"
                      "Live Reload is available only when running from source.")
             return
-        if self._supervised:
-            return
+        self._dev_paused = False
         self._dev_snapshot = devtools.snapshot()
         self._dev_pending = False
         self._schedule_dev_poll()
@@ -168,22 +184,125 @@ class App(tk.Tk):
             self._dev_job = None
         self._dev_snapshot = None
         self._dev_pending = False
+        self._dev_paused = False
+        self._close_dev_log()
 
     def _dev_poll(self):
         self._dev_job = None
         if not self._dev_mode or self._supervised or not self._source_available:
             return
+        if self._dev_paused:
+            return
         current = devtools.snapshot()
-        if self._dev_pending or current != self._dev_snapshot:
+        changed = current != self._dev_snapshot
+        if self._dev_pending or changed:
             self._dev_snapshot = current
             if self.compiler.is_building():
                 self._dev_pending = True
                 self._dev_job = self.after(1000, self._dev_poll)
                 return
+            if changed:
+                self._dev_pending = True
+                self._dev_job = self.after(300, self._dev_poll)
+                return
             self._dev_pending = False
             self._relaunch_for_dev()
             return
         self._dev_job = self.after(500, self._dev_poll)
+
+    def _dev_reload_shortcut(self, event=None):
+        if not self._dev_mode:
+            return
+        if self._supervised:
+            messagebox.showinfo(
+                APP, "Live Reload is controlled by dev_reload.py.")
+            return
+        if not self._source_available:
+            messagebox.showinfo(
+                APP, "Live Reload is available only when running from source.")
+            return
+        if self.compiler.is_building():
+            self._dev_pending = True
+            return
+        self._relaunch_for_dev()
+
+    def _dev_pause_shortcut(self, event=None):
+        if not self._dev_mode:
+            return
+        if self._supervised:
+            messagebox.showinfo(
+                APP, "Live Reload is controlled by dev_reload.py.")
+            return
+        if not self._source_available:
+            messagebox.showinfo(
+                APP, "Live Reload is available only when running from source.")
+            return
+        self._dev_paused = not self._dev_paused
+        if self._dev_paused:
+            if self._dev_job is not None:
+                self.after_cancel(self._dev_job)
+                self._dev_job = None
+        else:
+            self._schedule_dev_poll()
+
+    def _dev_log_shortcut(self, event=None):
+        if self._dev_mode:
+            self._open_log()
+
+    def _open_log(self):
+        try:
+            if LOG_PATH.is_file():
+                open_path(str(LOG_PATH))
+            else:
+                messagebox.showinfo(APP, "No log file yet.")
+        except Exception as exc:
+            messagebox.showerror(APP, "Could not open the log:\n%s" % exc)
+
+    def _open_dev_tools(self):
+        if not self._dev_mode:
+            return
+        if self._dev_dialog is not None:
+            try:
+                self._dev_dialog.lift()
+                self._dev_dialog.focus_force()
+                return
+            except tk.TclError:
+                self._dev_dialog = None
+        from .dev_dialog import DevToolsDialog
+        self._dev_dialog = DevToolsDialog(self)
+
+    def _close_dev_tools(self):
+        dialog = self._dev_dialog
+        self._dev_dialog = None
+        if dialog is not None:
+            try:
+                dialog.destroy()
+            except tk.TclError:
+                pass
+
+    def _open_dev_log(self):
+        path = DATA_DIR / "dev-reload.log"
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._dev_log = open(path, "w", encoding="utf-8")
+        except OSError:
+            self._dev_log = None
+
+    def _close_dev_log(self):
+        if self._dev_log is not None:
+            try:
+                self._dev_log.close()
+            except OSError:
+                pass
+            self._dev_log = None
+
+    def _dev_log_tail(self):
+        try:
+            text = (DATA_DIR / "dev-reload.log").read_text(
+                encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
+        return "\n".join(text.splitlines()[-12:]).strip()
 
     def _relaunch_for_dev(self):
         if self._dev_relaunching:
@@ -192,12 +311,16 @@ class App(tk.Tk):
         env = os.environ.copy()
         env[devtools.DEV_ENV] = "1"
         env.pop(devtools.SUPERVISED_ENV, None)
+        self._open_dev_log()
         try:
             process = subprocess.Popen(
                 [sys.executable, str(devtools.ENTRY)],
-                cwd=str(devtools.ROOT), env=env)
+                cwd=str(devtools.ROOT), env=env,
+                stdout=self._dev_log, stderr=subprocess.STDOUT,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         except OSError as exc:
             self._dev_relaunching = False
+            self._close_dev_log()
             messagebox.showerror(APP, "Live Reload failed:\n%s" % exc)
             self._schedule_dev_poll()
             return
@@ -206,11 +329,16 @@ class App(tk.Tk):
     def _finish_dev_relaunch(self, process):
         self._dev_relaunching = False
         if process.poll() is None:
+            self._close_dev_log()
             self._stop_dev_watcher()
             self.destroy()
             return
-        messagebox.showerror(
-            APP, "Live Reload failed: the new process exited.")
+        self._close_dev_log()
+        tail = self._dev_log_tail()
+        message = "Live Reload failed: the new process exited."
+        if tail:
+            message += "\n\n" + tail
+        messagebox.showerror(APP, message)
         self._dev_snapshot = devtools.snapshot()
         self._dev_pending = False
         if self._dev_mode:

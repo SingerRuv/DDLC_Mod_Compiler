@@ -6,7 +6,8 @@ from pathlib import Path
 
 from .config import (BASE_ASSETS, BASE_PY, BASE_RPAS, DOCS, MARGEN_DISCO,
                      OVERLAY_RPAS, PHASE_COPY_ASSETS, PHASE_COPY_MOD,
-                     PHASE_COPY_OVERLAY, PHASE_VERIFY, PHASE_ZIP)
+                     PHASE_COPY_OVERLAY, PHASE_VERIFY, PHASE_ZIP,
+                     STAGING_PREFIX)
 from .errors import BuildCancelada, BuildError
 from .files import (_archivos_faltantes, _copiar_arbol, _copiar_archivo,
                     _ignorar_base, _ignorar_runtime, _no_vacio, _norm,
@@ -43,7 +44,8 @@ def _agregar_assets(base, staging, log, cancelar, progress):
         log("The mod already has all base assets.")
 
 
-def _validar_salida(base, mod, output, needed, overwrite=False):
+def validar_rutas(base, mod, output):
+    """Return the output path after checking it is safe to write."""
     output = Path(output)
     out_abs = Path(_norm(output))
     for origen in (base, mod):
@@ -51,12 +53,19 @@ def _validar_salida(base, mod, output, needed, overwrite=False):
         if out_abs == origen_abs or origen_abs in out_abs.parents:
             raise BuildError("Output cannot be the base, the mod, or "
                              "a folder inside them.")
+        if out_abs in origen_abs.parents:
+            raise BuildError("Output cannot contain the base or the mod.")
     if output.exists() and not output.is_dir():
         raise BuildError("Output exists and is not a folder.")
-    if _no_vacio(output) and not overwrite:
-        raise BuildError("Output folder already exists and is not empty.")
     if output.parent == output:
         raise BuildError("Choose a valid output folder.")
+    return output
+
+
+def _validar_salida(base, mod, output, needed, overwrite=False):
+    output = validar_rutas(base, mod, output)
+    if _no_vacio(output) and not overwrite:
+        raise BuildError("Output folder already exists and is not empty.")
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists() and not any(output.iterdir()):
         output.rmdir()
@@ -154,16 +163,18 @@ def _compilar_runtime(base, mod, output, crear_zip=False,
     mod_bytes = _tam_arbol(mod, _ignorar_runtime)
     assets_bytes = sum((base / rel).stat().st_size for rel in BASE_ASSETS)
     assets_bytes += _tam_arbol(base / BASE_PY)
-    needed = mod_bytes + assets_bytes + MARGEN_DISCO
+    estimate = mod_bytes + assets_bytes
+    needed = estimate + MARGEN_DISCO
     if overwrite and output.exists():
         needed += _tam_arbol(output)
     if crear_zip:
         needed *= 2
     output = _validar_salida(base, mod, output, needed, overwrite)
     log("Validation OK: Ren'Py %s runtime." % _version_renpy(mod))
+    log("Estimated size: %.1f MB." % (estimate / (1024 * 1024)))
 
-    staging = Path(tempfile.mkdtemp(prefix=output.name + "-build-",
-                                    dir=str(output.parent)))
+    staging = Path(tempfile.mkdtemp(
+        prefix=STAGING_PREFIX + output.name + "-", dir=str(output.parent)))
     try:
         status("Copying mod...")
         log("Copying mod...")
@@ -238,7 +249,8 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
         overlay_bytes = sum((overlay / rel).stat().st_size
                             for rel in OVERLAY_RPAS)
         base_bytes = _tam_arbol(base, _ignorar_base)
-        needed = base_bytes + overlay_bytes + MARGEN_DISCO
+        estimate = base_bytes + overlay_bytes
+        needed = estimate + MARGEN_DISCO
         if overwrite and output.exists():
             needed += _tam_arbol(output)
         if crear_zip:
@@ -246,9 +258,11 @@ def compilar(base, overlay, output, incluir_docs=True, crear_zip=False,
         output = _validar_salida(base, overlay, output, needed, overwrite)
 
         log("Validation OK.")
+        log("Estimated size: %.1f MB." % (estimate / (1024 * 1024)))
         status("Copying DDLC base...")
-        staging = Path(tempfile.mkdtemp(prefix=output.name + "-build-",
-                                        dir=str(output.parent)))
+        staging = Path(tempfile.mkdtemp(
+            prefix=STAGING_PREFIX + output.name + "-",
+            dir=str(output.parent)))
         try:
             log("Copying DDLC base...")
             _copiar_arbol(base, staging, log, cancelar, progress,

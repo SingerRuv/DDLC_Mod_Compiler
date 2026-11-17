@@ -4,8 +4,10 @@ import subprocess
 import sys
 import time
 
+from ddlc_mod_manager.config import MODS_ROOT
 from ddlc_mod_manager.devtools import (DEV_ENV, ENTRY, ROOT,
-                                       SUPERVISED_ENV, snapshot)
+                                       SUPERVISED_ENV, build_staging,
+                                       snapshot)
 
 POLL_SECONDS = 0.5
 DEBOUNCE_SECONDS = 0.3
@@ -33,6 +35,8 @@ def stop_app(process):
 
 def main():
     previous = snapshot()
+    pending = False
+    waiting = False
     process = start_app()
     try:
         while True:
@@ -42,9 +46,19 @@ def main():
                 previous = current
                 time.sleep(DEBOUNCE_SECONDS)
                 previous = snapshot()
+                pending = True
+            if pending:
+                alive = process is not None and process.poll() is None
+                if alive and build_staging(MODS_ROOT):
+                    if not waiting:
+                        print("[dev] build in progress, waiting", flush=True)
+                        waiting = True
+                    continue
+                waiting = False
                 print("[dev] change detected, restarting", flush=True)
                 stop_app(process)
                 process = start_app()
+                pending = False
                 continue
             if process is not None and process.poll() is not None:
                 code = process.returncode

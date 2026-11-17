@@ -1,5 +1,7 @@
 """Launcher tab."""
 import queue
+import shutil
+import sys
 import threading
 from collections import OrderedDict
 from pathlib import Path
@@ -12,7 +14,7 @@ except ImportError:
     Image = ImageTk = None
 
 from . import icons, theme
-from .config import APP, MODS_ROOT, ensure_mods_root
+from .config import APP, DATA_DIR, MODS_ROOT, ensure_mods_root
 from .library import (entry_from_path, filter_entries, load_state, save_state,
                       scan_roots, sort_entries)
 from .platforms import (find_launcher, open_launcher, open_path,
@@ -21,7 +23,6 @@ from .platforms import (find_launcher, open_launcher, open_path,
 CARD_COLUMNS = 3
 CARD_WIDTH = 230
 CARD_LOGO = 150
-CARD_HEIGHT = CARD_LOGO + 185
 IMAGE_CACHE_LIMIT = 128
 IMAGE_CACHE_BYTES = 32 * 1024 * 1024
 
@@ -39,6 +40,17 @@ def _image_bytes(image):
         return max(1, int(image.width()) * int(image.height()) * 4)
     except Exception:
         return 1
+
+
+def _wheel_steps(delta, platform=None):
+    """Return the canvas scroll units for one wheel event."""
+    platform = platform or sys.platform
+    if platform == "darwin":
+        return -1 if delta > 0 else 1 if delta < 0 else 0
+    steps = -int(delta / 120)
+    if steps == 0 and delta:
+        steps = -1 if delta > 0 else 1
+    return steps
 
 
 class LauncherTab(ttk.Frame):
@@ -65,6 +77,9 @@ class LauncherTab(ttk.Frame):
         self._scan_thread = None
         self._action_buttons = []
         self._build_ui()
+        self.bind_all("<MouseWheel>", self._on_mousewheel, add="+")
+        self.bind_all("<Button-4>", self._on_mousewheel_linux, add="+")
+        self.bind_all("<Button-5>", self._on_mousewheel_linux, add="+")
         self._external_roots, self._extra_paths = load_state()
         self.status.set("Scanning %s mods... Please wait." % self.platform)
         self.after(100, self.start_scan)
@@ -142,6 +157,27 @@ class LauncherTab(ttk.Frame):
         if self._view_job:
             self.after_cancel(self._view_job)
         self._view_job = self.after(120, self._apply_view)
+
+    def _wheel_over_canvas(self):
+        if not self.canvas.winfo_ismapped():
+            return False
+        x, y = self.winfo_pointerxy()
+        left = self.canvas.winfo_rootx()
+        top = self.canvas.winfo_rooty()
+        return (left <= x < left + self.canvas.winfo_width() and
+                top <= y < top + self.canvas.winfo_height())
+
+    def _on_mousewheel(self, event):
+        if not self._wheel_over_canvas():
+            return
+        steps = _wheel_steps(event.delta)
+        if steps:
+            self.canvas.yview_scroll(steps, "units")
+
+    def _on_mousewheel_linux(self, event):
+        if not self._wheel_over_canvas():
+            return
+        self.canvas.yview_scroll(-1 if event.num == 4 else 1, "units")
 
     def _apply_view(self):
         self._view_job = None
@@ -242,6 +278,36 @@ class LauncherTab(ttk.Frame):
             self.status.set("Could not save launcher state: %s" % exc)
         self._apply_view()
 
+    def add_root(self, path):
+        resolved = str(Path(path).resolve())
+        if resolved not in self._external_roots:
+            self._external_roots.append(resolved)
+        self.start_scan()
+
+    def remove_root(self, path):
+        resolved = str(Path(path).resolve())
+        self._external_roots = [
+            root for root in self._external_roots if root != resolved]
+        self.start_scan()
+
+    def clear_logo_cache(self):
+        shutil.rmtree(DATA_DIR / "logo-cache", ignore_errors=True)
+        self._image_cache.clear()
+        self._image_cache_bytes = 0
+        self._active_image_keys.clear()
+        self.start_scan()
+
+    def reset_state(self):
+        self._external_roots = []
+        self._extra_paths = []
+        self._all_entries = []
+        self._entries = []
+        try:
+            save_state([], [])
+        except OSError:
+            pass
+        self.start_scan()
+
     def _open_mods_root(self):
         ensure_mods_root()
         open_path(str(MODS_ROOT))
@@ -300,9 +366,8 @@ class LauncherTab(ttk.Frame):
 
     def _card(self, entry, row, col):
         card = ttk.Frame(self.cards, padding=6, style="Card.TFrame",
-                         width=CARD_WIDTH, height=CARD_HEIGHT)
-        card.grid(row=row, column=col, sticky="nw", padx=4, pady=4)
-        card.grid_propagate(False)
+                         width=CARD_WIDTH)
+        card.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
         card.columnconfigure(0, weight=1)
 
         image = self._logo(entry)

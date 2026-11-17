@@ -12,10 +12,12 @@ from . import icons, theme
 from .builder import compilar
 from .config import (APP, LOG_PATH, MODS_ROOT, PHASE_COPY_ASSETS,
                      PHASE_COPY_BASE, PHASE_COPY_MOD, PHASE_COPY_OVERLAY,
-                     PHASE_VERIFY, PHASE_ZIP, ensure_mods_root)
+                     PHASE_VERIFY, PHASE_ZIP, ensure_mods_root,
+                     load_last_base, save_last_base)
 from .errors import BuildCancelada
-from .mods import detectar_mod
+from .mods import base_info, detectar_mod
 from .platforms import open_path
+from .preflight import format_report, preflight
 
 LOG_QUEUE_LIMIT = 4096
 
@@ -40,6 +42,7 @@ class CompilerTab(ttk.Frame):
         self.base = tk.StringVar()
         self.overlay = tk.StringVar()
         self.output = tk.StringVar()
+        self.base_info = tk.StringVar(value="")
         self.modo = tk.StringVar(value="Mode: not detected")
         self.docs = tk.BooleanVar(value=True)
         self.zip = tk.BooleanVar(value=False)
@@ -56,8 +59,12 @@ class CompilerTab(ttk.Frame):
         self._build_ui()
         self.apply_theme(self.dark)
         self.overlay.trace_add("write", lambda *_: self._actualizar_modo())
+        self.base.trace_add("write", lambda *_: self._actualizar_base())
         for variable in (self.base, self.overlay, self.output):
             variable.trace_add("write", lambda *_: self._clear_built())
+        last_base = load_last_base()
+        if last_base:
+            self.base.set(last_base)
         self.after(100, self._pump)
 
     def _clear_built(self):
@@ -154,29 +161,33 @@ class CompilerTab(ttk.Frame):
                      self._elegir_base).grid(
             row=1, column=1, padx=(8, 0), sticky="w")
 
+        ttk.Label(controls, textvariable=self.base_info,
+                  style="Muted.TLabel").grid(
+            row=2, column=0, columnspan=3, sticky="w", pady=(0, 8))
+
         mod_header = ttk.Frame(controls)
-        mod_header.grid(row=2, column=0, columnspan=3, sticky="w")
+        mod_header.grid(row=3, column=0, columnspan=3, sticky="w")
         ttk.Label(mod_header, text="2. Mod (folder or ZIP)").pack(
             side="left")
         ttk.Entry(controls, textvariable=self.overlay, width=64,
                   state="readonly").grid(
-            row=3, column=0, sticky="w", pady=(2, 8))
+            row=4, column=0, sticky="w", pady=(2, 8))
         overlay_btns = ttk.Frame(controls)
-        overlay_btns.grid(row=3, column=1, padx=(8, 0), sticky="w")
+        overlay_btns.grid(row=4, column=1, padx=(8, 0), sticky="w")
         self.mod_button = self._button(
             overlay_btns, "Choose...", "folder", self._show_mod_menu)
         self.mod_button.pack(side="left")
 
         ttk.Label(controls, text="3. Output folder").grid(
-            row=4, column=0, sticky="w")
+            row=5, column=0, sticky="w")
         ttk.Entry(controls, textvariable=self.output, state="readonly",
-                  width=64).grid(row=5, column=0, sticky="w", pady=(2, 8))
+                  width=64).grid(row=6, column=0, sticky="w", pady=(2, 8))
         self._button(controls, "Open folder", "output-folder",
                      self._abrir_salida).grid(
-            row=5, column=1, padx=(8, 0), sticky="w")
+            row=6, column=1, padx=(8, 0), sticky="w")
 
         checks = ttk.Frame(controls)
-        checks.grid(row=6, column=0, columnspan=3, sticky="w",
+        checks.grid(row=7, column=0, columnspan=3, sticky="w",
                     pady=(14, 8))
         ttk.Checkbutton(checks, text="Include credits and README",
                         variable=self.docs).pack(side="left", padx=(0, 18))
@@ -189,7 +200,7 @@ class CompilerTab(ttk.Frame):
         self.modo_label.pack(side="left", padx=(18, 0))
 
         bar = ttk.Frame(controls)
-        bar.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(4, 8))
+        bar.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(4, 8))
         self.boton = self._button(bar, "Build", "build", self._iniciar)
         self.boton.pack(side="left")
         self._button(bar, "Cancel", "cancel", self._cancelar).pack(
@@ -210,6 +221,7 @@ class CompilerTab(ttk.Frame):
         p = filedialog.askdirectory(title="DDLC base folder")
         if p:
             self.base.set(p)
+            save_last_base(p)
 
     def _elegir_overlay_dir(self):
         p = filedialog.askdirectory(title="Mod folder")
@@ -249,6 +261,22 @@ class CompilerTab(ttk.Frame):
         else:
             self.modo.set("Mode: source project (unsupported)")
             self.modo_label.configure(foreground="#b00020")
+
+    def _actualizar_base(self):
+        path = self.base.get().strip()
+        if not path:
+            self.base_info.set("")
+            return
+        version, edition = base_info(path)
+        if edition:
+            text = edition
+            if version:
+                text += " (Ren'Py %s)" % version
+        elif version:
+            text = "Ren'Py %s" % version
+        else:
+            text = "Base version not detected"
+        self.base_info.set(text)
 
     def _sugerir_salida(self, p):
         ensure_mods_root()
@@ -367,10 +395,21 @@ class CompilerTab(ttk.Frame):
         output = str(output_path)
         if output != self.output.get():
             self.output.set(output)
+        try:
+            report = preflight(base, overlay, output,
+                               crear_zip=self.zip.get(), overwrite=overwrite)
+        except Exception as e:
+            messagebox.showwarning(APP, "Cannot build:\n%s" % e)
+            return
+        if report["warnings"] or report["replace"] or report["zip_replace"]:
+            if not messagebox.askyesno(APP, format_report(report)):
+                return
         suffix = ""
         if tipo == "runtime":
             suffix = (" Ren'Py " + version) if version else " Ren'Py runtime"
         self._log("Mode: %s%s" % (tipo, suffix))
+        if report["base_edition"]:
+            self._log("Base: %s" % report["base_edition"])
         self._cancel.clear()
         self._last_built = None
         self.boton.config(state="disabled")

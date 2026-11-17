@@ -76,11 +76,25 @@ Press:
 Up, Down, Up, Down, Left, Right, Left, Right, Space, Space
 ```
 
-Developer Mode is indicated only by a small `DEV` badge in the header. Press the same sequence again to turn it off.
+Developer Mode is indicated only by a small `DEV` badge in the header. Press the same sequence again to turn it off. When the app is started by the standalone supervisor, the badge reads `DEV (external)` and stays visible because the supervisor controls reloads.
 
-When the app runs from source, saving a `.py` file restarts it automatically. The new instance keeps Developer Mode active. Unsaved UI state is lost.
+When the app runs from source, saving a `.py` file restarts it automatically after a short debounce. The watcher waits while a build is in progress. The new instance keeps Developer Mode active. Unsaved UI state is lost. If the new instance exits immediately, the old window stays open and shows the last lines of `~/.ddlc_mod_manager/dev-reload.log`.
 
-Live Reload is not available in the packaged executable; the badge still appears, but source reload is disabled. The standalone `python dev_reload.py` supervisor remains available and does not create a second watcher.
+Live Reload is not available in the packaged executable; the badge still appears, but source reload is disabled. The standalone `python dev_reload.py` supervisor remains available, does not create a second watcher, and also waits for an active build before restarting. If the app crashes, save a file to restart it.
+
+Build staging folders use the `.ddlc-build-` prefix, and the Launcher ignores them. If a build is interrupted, its staging folder is not deleted automatically.
+
+### Developer tools
+
+Click the `DEV` badge to open the developer tools:
+
+- Reload now, pause or resume the watcher, and open the log.
+- Run the build preflight for the current selection without building.
+- Clear the logo cache or reset the Launcher state.
+- Generate or remove layout-only test mods in `~/.ddlc_mod_manager/dev-mods`.
+- Extract RPA-3.0 archives in place. The RPA files are kept and loose files override them, so the mod stays playable. Scripts are extracted as `.rpyc`; use a decompiler to edit them.
+
+Shortcuts: `Ctrl+R` reload, `Ctrl+Shift+P` pause/resume, and `Ctrl+Shift+L` open the log.
 
 ## Launcher
 
@@ -92,6 +106,7 @@ The app opens on the **Compiler** tab. The tabs are **Compiler**, **Launcher**, 
 - The fixed folder, external folders, and imported mods are saved in `~/.ddlc_mod_manager/launcher.json`.
 - New builds are added to the Launcher automatically.
 - Logos are loaded from loose images first, then from PNG/GIF files inside the mod RPA archives. Extracted logos are cached in `~/.ddlc_mod_manager/logo-cache/`; mods without a logo show their initial.
+- Scroll the card list with the mouse wheel over the Launcher; the window can also be resized vertically.
 
 ## How to Use
 
@@ -109,7 +124,7 @@ The header includes a **sun/moon** button for switching between:
 - **Light:** native system theme with improved spacing and fonts.
 - **Dark:** a custom `clam` theme with a dark palette.
 
-The selected theme is saved in `~/.ddlc_mod_manager/settings.json`.
+The selected theme and the last base folder are saved in `~/.ddlc_mod_manager/settings.json`.
 
 The interface uses a bundled set of monochrome PNG icons in two variants:
 
@@ -126,7 +141,7 @@ They cover the tabs, launcher toolbar, compiler actions, and card buttons. Icon 
    - Windows: `DDLCModManager/DDLCModManager.exe` or `DDLCModManager/DDLCModManager.bat`.
    - macOS: `DDLCModManager.app`.
    - Linux: `./DDLCModManager`.
-2. Select the DDLC base.
+2. Select the DDLC base. The detected edition and Ren'Py version are shown under the field, for example `DDLC 1.1.1 (Ren'Py 6.99.12.4)`. The last base folder is remembered for the next launch.
 3. Use the single **Choose...** menu to select **Folder...** or **ZIP...**. All three path fields are read-only; use the adjacent buttons to change them.
    - `DDLC overlay`
    - `Runtime Ren'Py 6` / `Runtime Ren'Py 7` / `Runtime Ren'Py 8`
@@ -140,7 +155,7 @@ They cover the tabs, launcher toolbar, compiler actions, and card buttons. Icon 
    - include `Credits.txt`, `ThankYou.txt`, and `README.html` (overlay only);
    - create an uncompressed ZIP;
    - open the game when finished.
-7. Build.
+7. Build. If there are warnings or an existing build or ZIP will be replaced, a summary is shown for confirmation before the build starts.
 
 ## What It Does
 
@@ -168,6 +183,9 @@ They cover the tabs, launcher toolbar, compiler actions, and card buttons. Icon 
 ### General
 
 - Validates the base and mod before copying.
+- Shows the detected base edition and blocks overlay builds on a base that is not Ren'Py 6.
+- Shows a build summary with warnings, output action, and free space before risky builds.
+- Logs the estimated build size before copying.
 - Rejects unsafe ZIP paths, symlinks, and oversized archives.
 - Checks free disk space.
 - Copies in chunks and supports cancellation.
